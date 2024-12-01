@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>データの分類表示</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 2rem;
+            color: #5f6368;
+        }
+
+        .category {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            margin: 20px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .category:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .category h3 {
+            font-size: 1.5rem;
+            color: #4caf50;
+            margin-bottom: 10px;
+        }
+
+        .item {
+            background-color: #f9f9f9;
+            border-left: 5px solid #4caf50;
+            margin: 10px 0;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border-radius: 4px;
+        }
+
+        .item:hover {
+            background-color: #e8f5e9;
+        }
+
+        #result {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                font-size: 14px;
+            }
+
+            .category {
+                padding: 15px;
+                margin: 10px;
+            }
+
+            .category h3 {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>ローカルストレージデータの分類結果</h1>
+    <a href="index.html">トップへ戻る</a>
+    <div id="result"></div>
+
+    <script>
+        // ローカルストレージから 'BackupJson' を取得
+        const backupJson = localStorage.getItem('BackupJson');
+
+        // もしローカルストレージにデータがあれば処理する
+        if (backupJson) {
+            const data = JSON.parse(backupJson);
+
+            // キー数ごとに分類するオブジェクト
+            const categorized = {};
+
+            // データをループしてキー数を数える
+            data.forEach(item => {
+                const keyCount = Object.keys(item).length;
+
+                // キー数ごとのカテゴリに分類
+                if (!categorized[keyCount]) {
+                    categorized[keyCount] = [];
+                }
+                categorized[keyCount].push(item);
+            });
+
+            // 結果を表示する関数
+            function displayResult() {
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = ''; // 既存の内容をクリア
+
+                // カテゴリごとに表示
+                for (let keyCount in categorized) {
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.classList.add('category');
+                    
+                    const categoryTitle = document.createElement('h3');
+                    categoryTitle.textContent = `キー数: ${keyCount}`;
+                    categoryDiv.appendChild(categoryTitle);
+
+                    const itemList = document.createElement('div');
+                    categorized[keyCount].forEach(item => {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.classList.add('item');
+                        itemDiv.textContent = JSON.stringify(item, null, 2); // JSON形式で表示
+                        itemList.appendChild(itemDiv);
+                    });
+
+                    categoryDiv.appendChild(itemList);
+                    resultDiv.appendChild(categoryDiv);
+                }
+            }
+
+            // ページが読み込まれたときに分類結果を表示
+            window.onload = displayResult;
+        } else {
+            document.getElementById('result').textContent = 'ローカルストレージにデータがありません。';
+        }
+    </script>
+</body>
+</html>

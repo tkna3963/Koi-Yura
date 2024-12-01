@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="javascripts.js"></script>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</head>
+
+<body>
+    <h1 id="now_time">現在時刻</h1>
+    <textarea id="maintextarea" rows="1" readonly></textarea>
+    <div class='koisiarrow_box'>古明地こいしだよ～～</div>
+    <img src="baclgroundimg.jpg" id="back">
+    <img src="hyoujyou_bishou_koisi.png" id="koisi">
+
+    <div id="menu">
+        <h2>メニュー</h2>
+        <a href="viewajson.html">jsonview</a>
+        <a href="hhttps://github.com/tkna3963/Koi-Yura">Github</a>
+    </div>
+
+    <button id="toggleMenuBtn">☰</button>
+
+    <script>
+        const menu = document.getElementById('menu');
+        const toggleMenuBtn = document.getElementById('toggleMenuBtn');
+
+        toggleMenuBtn.addEventListener('click', () => {
+            menu.classList.toggle('open');
+        });
+    </script>
+</body>
+
+</html>
