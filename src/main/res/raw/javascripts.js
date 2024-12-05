@@ -61,7 +61,7 @@ function wolfx_convert(data) {
 }
 
 function P2P551Convert(data) {
-    const id = data.id
+    const id = data._id
     const time = data.time
     const issues = data.issue
     const info_type = issues.type
@@ -81,14 +81,25 @@ function P2P551Convert(data) {
     const points = data.points
     const point_text = ""
     for (const element of points) {
-        point_text += `${element.pref}${element.addr}:震度${element.scale}`;
+        point_text += `${element.pref}${element.addr}:震度${element.scale}\n`;
     }
-
 }
 
-
 function P2P552Convert(data) { }
-function P2P555Convert(data) { }
+
+function P2P555Convert(data) { 
+    id=data._id
+    time=data.time
+    hop=data.hop
+    created_at=data.created_at
+    expire=data.expire
+    areas=data.areas
+    const point_text = ""
+    for (const element of points) {
+        point_text += `${element.id}:${element.peer}件\n`;
+    }
+   }
+
 function P2P556Convert(data) { }
 function P2P561Convert(data) { }
 function P2P9611Convert(data) { }
