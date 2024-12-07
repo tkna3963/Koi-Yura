@@ -49,6 +49,7 @@
             white-space: pre-wrap;
             word-wrap: break-word;
             border-radius: 4px;
+            display: none; /* 初期状態で非表示 */
         }
 
         .item:hover {
@@ -59,6 +60,23 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .checkbox-wrapper input[type="checkbox"] {
+            margin-right: 10px;
+            transform: scale(1.2); /* チェックボックスを大きくする */
+            cursor: pointer;
+        }
+
+        .checkbox-wrapper label {
+            cursor: pointer; /* ラベルをクリック可能に */
         }
 
         @media (max-width: 600px) {
@@ -119,10 +137,34 @@
                     categoryDiv.appendChild(categoryTitle);
 
                     const itemList = document.createElement('div');
-                    categorized[keyCount].forEach(item => {
+                    categorized[keyCount].forEach((item, index) => {
+                        const itemWrapper = document.createElement('div');
+                        itemWrapper.classList.add('checkbox-wrapper');
+
+                        // チェックボックスの作成
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.id = `checkbox-${keyCount}-${index}`; // ユニークなIDを付与
+                        checkbox.checked = false; // 初期状態は非表示
+                        checkbox.addEventListener('change', (e) => {
+                            // チェックボックスの状態によって表示・非表示を切り替え
+                            itemDiv.style.display = e.target.checked ? 'block' : 'none';
+                        });
+
+                        // ラベルの作成
+                        const label = document.createElement('label');
+                        label.htmlFor = `checkbox-${keyCount}-${index}`;
+                        label.textContent = '表示する'; // チェックボックスの横に説明を追加
+
+                        // JSONデータ表示用のdiv
                         const itemDiv = document.createElement('div');
                         itemDiv.classList.add('item');
                         itemDiv.textContent = JSON.stringify(item, null, 2); // JSON形式で表示
+
+                        // 要素をラップ
+                        itemWrapper.appendChild(checkbox);
+                        itemWrapper.appendChild(label);
+                        itemList.appendChild(itemWrapper);
                         itemList.appendChild(itemDiv);
                     });
 
