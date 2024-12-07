@@ -60,12 +60,49 @@ function wolfx_convert(data) {
     }
 }
 
-function P2P551Convert() { }
-function P2P552Convert() { }
-function P2P555Convert() { }
-function P2P556Convert() { }
-function P2P561Convert() { }
-function P2P9611Convert() { }
+function P2P551Convert(data) {
+    const id = data._id
+    const time = data.time
+    const issues = data.issue
+    const info_type = issues.type
+    const info_correct = issues.correct
+    const earthquake_infos = data.earthquake
+    const occurrence_time = earthquake_infos.time
+    const hypocenter_infos = earthquake_infos.hypocenter
+    const hypocenter_name = hypocenter_infos.name
+    const hypocenter_latitude = hypocenter_infos.latitude
+    const hypocenter_longitude = hypocenter_infos.longitude
+    const depth = hypocenter_infos.depth
+    const magnitude = hypocenter_infos.magnitude
+    const maxScale = earthquake_infos.maxScale
+    const domesticTsunami = earthquake_infos.domesticTsunami
+    const foreignTsunami = earthquake_infos.foreignTsunami
+
+    const points = data.points
+    const point_text = ""
+    for (const element of points) {
+        point_text += `${element.pref}${element.addr}:震度${element.scale}\n`;
+    }
+}
+
+function P2P552Convert(data) { }
+
+function P2P555Convert(data) { 
+    id=data._id
+    time=data.time
+    hop=data.hop
+    created_at=data.created_at
+    expire=data.expire
+    areas=data.areas
+    const point_text = ""
+    for (const element of points) {
+        point_text += `${element.id}:${element.peer}件\n`;
+    }
+   }
+
+function P2P556Convert(data) { }
+function P2P561Convert(data) { }
+function P2P9611Convert(data) { }
 
 // 通信中心部
 const P2P_websoket_url = 'wss://api.p2pquake.net/v2/ws';
