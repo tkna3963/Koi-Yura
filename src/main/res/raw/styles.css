@@ -148,3 +148,10 @@
 #toggleMenuBtn:hover {
     background-color: #444;
 }
+
+#next_bottom{
+    top: 30%;
+    left: 0px;
+    height: 10%;
+    z-index:10;
+}
