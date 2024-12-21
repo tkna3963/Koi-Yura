@@ -62,7 +62,6 @@ function P2P551Convert(data) {
     const time = data.time;
     const issues = data.issue;
     const info_type = issues.type;
-    const info_correct = issues.correct;
     const earthquake_infos = data.earthquake;
     const occurrence_time = earthquake_infos.time;
     const hypocenter_infos = earthquake_infos.hypocenter;
@@ -100,6 +99,7 @@ function P2P555Convert(data) {
 }
 
 function P2P556Convert(data) { }
+
 function P2P561Convert(data) {
     const template_text = "";
     id = data._id
@@ -144,7 +144,6 @@ P2P_websoket.onmessage = function (event) {
         all_data_list.push(data);
         log_list.push(`P2P data received: ${JSON.stringify(data)} `);
 
-        displayMaintexTareaAllData()
 
     } catch (error) {
         console.error("Error processing P2P WebSocket data:", error);
@@ -159,7 +158,6 @@ wolfx_websoket.onmessage = function (event) {
         all_data_list.push(data);
         log_list.push(`WolfX data received: ${JSON.stringify(data)} `);
 
-        displayMaintexTareaAllData()
 
     } catch (error) {
         console.error("Error processing WolfX WebSocket data:", error);
@@ -176,12 +174,24 @@ setInterval(changetime, 1);
 
 
 //all_data_listの中身をmaintextareaに表示
-function displayMaintexTareaAllData() {
+function displayMaintexTareaAllData(num) {
     const mainTextarea = document.getElementById("maintextarea");
     if (mainTextarea) {
-        mainTextarea.value = JSON.stringify(all_data_list, null, 2);
+        mainTextarea.value = JSON.stringify(all_data_list[all_data_list.length - num], null, 2);
+
     } else {
         console.error("Element with id 'maintextarea' not found.");
     }
 }
 
+// 次の要素を表示
+function showNext() {
+    currentIndex = (currentIndex + 1) % all_data_list.length; // インデックスを更新（ループ）
+    displayMaintexTareaAllData(all_data_list.length - currentIndex);
+}
+
+// 前の要素を表示
+function showPrevious() {
+    currentIndex = (currentIndex - 1 + all_data_list.length) % all_data_list.length; // インデックスを逆ループ
+    displayMaintexTareaAllData(all_data_list.length - currentIndex);
+}
