@@ -62,6 +62,7 @@ function P2P551Convert(data) {
     const time = data.time;
     const issues = data.issue;
     const info_type = issues.type;
+    const info_correct = issues.correct;
     const earthquake_infos = data.earthquake;
     const occurrence_time = earthquake_infos.time;
     const hypocenter_infos = earthquake_infos.hypocenter;
@@ -99,7 +100,6 @@ function P2P555Convert(data) {
 }
 
 function P2P556Convert(data) { }
-
 function P2P561Convert(data) {
     const template_text = "";
     id = data._id
@@ -144,6 +144,7 @@ P2P_websoket.onmessage = function (event) {
         all_data_list.push(data);
         log_list.push(`P2P data received: ${JSON.stringify(data)} `);
 
+        displayMaintexTareaAllData()
 
     } catch (error) {
         console.error("Error processing P2P WebSocket data:", error);
@@ -158,6 +159,7 @@ wolfx_websoket.onmessage = function (event) {
         all_data_list.push(data);
         log_list.push(`WolfX data received: ${JSON.stringify(data)} `);
 
+        displayMaintexTareaAllData()
 
     } catch (error) {
         console.error("Error processing WolfX WebSocket data:", error);
