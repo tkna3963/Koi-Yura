@@ -141,23 +141,3 @@
 #toggleMenuBtn:hover {
     background-color: #444;
 }
-
-#next_button{
-    position: absolute;
-    height: 5%;
-    width: auto;
-    right: 0px;
-    top: 30%;
-    z-index: 30;
-}
-
-#return_button{
-    position: absolute;
-    height: 5%;
-    width: auto;
-    left: 0px;
-    top: 30%;
-    transform: scale(-1, 1);
-    transform: rotate(180deg);
-    z-index: 30;
-}
