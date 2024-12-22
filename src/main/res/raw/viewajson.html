@@ -12,12 +12,42 @@
             margin: 0;
             padding: 0;
         }
-        
+
         h1 {
             text-align: center;
             margin-top: 30px;
             font-size: 2rem;
             color: #5f6368;
+        }
+
+        .stats {
+            text-align: center;
+            margin: 20px;
+            font-size: 1rem;
+            background-color: #e7f4e4;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .button-container {
+            text-align: center;
+            margin: 20px;
+        }
+
+        button {
+            background-color: #d9534f;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #c9302c;
         }
 
         .category {
@@ -27,6 +57,7 @@
             margin: 20px;
             padding: 20px;
             transition: all 0.3s ease;
+            position: relative;
         }
 
         .category:hover {
@@ -40,6 +71,14 @@
             margin-bottom: 10px;
         }
 
+        .category .icon {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 2rem;
+            color: #4caf50;
+        }
+
         .item {
             background-color: #f9f9f9;
             border-left: 5px solid #4caf50;
@@ -49,34 +88,31 @@
             white-space: pre-wrap;
             word-wrap: break-word;
             border-radius: 4px;
-            display: none; /* 初期状態で非表示 */
         }
 
-        .item:hover {
-            background-color: #e8f5e9;
+        .item .toggle-button {
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+
+        .item code {
+            display: none; /* 初期状態で非表示 */
+            padding: 10px;
+            background-color: #272822;
+            color: #f8f8f2;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        .item code.visible {
+            display: block; /* 表示時のスタイル */
         }
 
         #result {
             display: flex;
             flex-direction: column;
             align-items: center;
-        }
-
-        .checkbox-wrapper {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-            font-size: 0.9rem;
-        }
-
-        .checkbox-wrapper input[type="checkbox"] {
-            margin-right: 10px;
-            transform: scale(1.2); /* チェックボックスを大きくする */
-            cursor: pointer;
-        }
-
-        .checkbox-wrapper label {
-            cursor: pointer; /* ラベルをクリック可能に */
         }
 
         @media (max-width: 600px) {
@@ -98,6 +134,15 @@
 <body>
     <h1>ローカルストレージデータの分類結果</h1>
     <a href="index.html">トップへ戻る</a>
+
+    <div class="stats" id="stats">
+        データの統計情報を表示中...
+    </div>
+
+    <div class="button-container">
+        <button id="clear-localstorage">ローカルストレージを削除</button>
+    </div>
+
     <div id="result"></div>
 
     <script>
@@ -111,9 +156,17 @@
             // キー数ごとに分類するオブジェクト
             const categorized = {};
 
+            // 統計情報用の変数
+            let totalItems = 0;
+            let maxKeys = 0;
+            let minKeys = Infinity;
+
             // データをループしてキー数を数える
             data.forEach(item => {
                 const keyCount = Object.keys(item).length;
+                totalItems++;
+                maxKeys = Math.max(maxKeys, keyCount);
+                minKeys = Math.min(minKeys, keyCount);
 
                 // キー数ごとのカテゴリに分類
                 if (!categorized[keyCount]) {
@@ -122,49 +175,53 @@
                 categorized[keyCount].push(item);
             });
 
+            // 統計情報を表示
+            const statsDiv = document.getElementById('stats');
+            statsDiv.innerHTML = `
+                <p>データ総数: ${totalItems} 件</p>
+                <p>最大キー数: ${maxKeys}</p>
+                <p>最小キー数: ${minKeys}</p>
+            `;
+
             // 結果を表示する関数
             function displayResult() {
                 const resultDiv = document.getElementById('result');
                 resultDiv.innerHTML = ''; // 既存の内容をクリア
 
+                const icons = ["📁", "📂", "🗂️", "📋", "📝"]; // アイコンリスト
+
                 // カテゴリごとに表示
                 for (let keyCount in categorized) {
                     const categoryDiv = document.createElement('div');
                     categoryDiv.classList.add('category');
-                    
+
+                    const icon = icons[keyCount % icons.length]; // アイコンを選択
+                    const iconSpan = document.createElement('span');
+                    iconSpan.textContent = icon;
+                    iconSpan.classList.add('icon');
+                    categoryDiv.appendChild(iconSpan);
+
                     const categoryTitle = document.createElement('h3');
                     categoryTitle.textContent = `キー数: ${keyCount}`;
                     categoryDiv.appendChild(categoryTitle);
 
                     const itemList = document.createElement('div');
-                    categorized[keyCount].forEach((item, index) => {
-                        const itemWrapper = document.createElement('div');
-                        itemWrapper.classList.add('checkbox-wrapper');
-
-                        // チェックボックスの作成
-                        const checkbox = document.createElement('input');
-                        checkbox.type = 'checkbox';
-                        checkbox.id = `checkbox-${keyCount}-${index}`; // ユニークなIDを付与
-                        checkbox.checked = false; // 初期状態は非表示
-                        checkbox.addEventListener('change', (e) => {
-                            // チェックボックスの状態によって表示・非表示を切り替え
-                            itemDiv.style.display = e.target.checked ? 'block' : 'none';
-                        });
-
-                        // ラベルの作成
-                        const label = document.createElement('label');
-                        label.htmlFor = `checkbox-${keyCount}-${index}`;
-                        label.textContent = '表示する'; // チェックボックスの横に説明を追加
-
-                        // JSONデータ表示用のdiv
+                    categorized[keyCount].forEach(item => {
                         const itemDiv = document.createElement('div');
                         itemDiv.classList.add('item');
-                        itemDiv.textContent = JSON.stringify(item, null, 2); // JSON形式で表示
 
-                        // 要素をラップ
-                        itemWrapper.appendChild(checkbox);
-                        itemWrapper.appendChild(label);
-                        itemList.appendChild(itemWrapper);
+                        const toggleButton = document.createElement('button');
+                        toggleButton.textContent = '詳細を表示/非表示';
+                        toggleButton.classList.add('toggle-button');
+                        toggleButton.addEventListener('click', () => {
+                            codeBlock.classList.toggle('visible'); // 表示切り替え
+                        });
+
+                        const codeBlock = document.createElement('code');
+                        codeBlock.textContent = JSON.stringify(item, null, 2); // 整形されたJSONを表示
+
+                        itemDiv.appendChild(toggleButton);
+                        itemDiv.appendChild(codeBlock);
                         itemList.appendChild(itemDiv);
                     });
 
@@ -178,6 +235,13 @@
         } else {
             document.getElementById('result').textContent = 'ローカルストレージにデータがありません。';
         }
+
+        // ローカルストレージ削除ボタンの処理
+        document.getElementById('clear-localstorage').addEventListener('click', () => {
+            localStorage.clear();
+            alert('ローカルストレージを削除しました。');
+            location.reload(); // ページをリロードして状態を反映
+        });
     </script>
 </body>
 </html>
