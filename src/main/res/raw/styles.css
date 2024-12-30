@@ -50,7 +50,6 @@
     position: fixed;
     bottom: 0;
     right: 0;
-    margin: 10px;
 }
 
 .koisiarrow_box {
@@ -170,14 +169,7 @@
     z-index: 30;
 }
 
-#next_buttonjs, #return_buttonjs {
-    height: 5%;
-    width: auto;
-    padding: 0; /* ボタンの余白をなくす */
-    border: none; /* ボタンの境界線をなくす */
-    background: none; /* 背景を透明にする */
-  }
 
   #linker{
-    background-color: #E6FF82;
+    background-color: #0dbf95;
   }

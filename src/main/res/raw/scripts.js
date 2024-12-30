@@ -13,6 +13,7 @@ function now_time() {
     return new Date();
 }
 
+
 function speakTextAndroid(text) {
     if (typeof Android !== 'undefined' && Android.speakText) {
         Android.speakText(text);
@@ -37,6 +38,40 @@ function Savejson(value) {
     localStorage.setItem("BackupJson", JSON.stringify(newData));
 }
 
+function EventTimer(targetDate) {
+    const now = now_time();
+    const remainingMilliseconds = targetDate.getTime() - now.getTime();
+    if (remainingMilliseconds <= 0) {
+        return true;
+    } else {
+        const days = Math.floor(remainingMilliseconds / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((remainingMilliseconds % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((remainingMilliseconds % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((remainingMilliseconds % (1000 * 60)) / 1000);
+        const milliseconds = remainingMilliseconds % 1000;
+        return `残り ${days} 日 ${hours} 時 ${minutes} 分 ${seconds} 秒 ${milliseconds} ミリ秒`;
+    }
+}
+
+function koisi_facechange(path) {
+    const image = document.getElementById('koisi');
+    const newSrc = path
+    image.src = newSrc;
+    console.log("画像が変更されました！");
+}
+
+function Koisi_voice(path) {
+    document.getElementById("koisi_voice").src = path;
+    document.getElementById("koisi_voice").play()
+}
+
+function koisiarrow_box_change(text) {
+    const box = document.querySelector(".koisiarrow_box");
+    if (box) { // 要素が存在するか確認
+        box.innerHTML = text;
+    }
+}
+
 // コンバーター部
 function converted_time(time) {
     const daysOfWeek = ['日', '月', '火', '水', '木', '金', '土'];
@@ -49,24 +84,6 @@ function converted_time(time) {
         ('0' + time.getSeconds()).slice(-2) + '(' +
         ('0' + Math.floor(time.getMilliseconds() / 10)).slice(-2) + ")";
     return formattedTime;
-}
-
-
-function seismicIntensityConversion(char) {
-    try {
-        const intensityMap = {
-            1: -3, 2: -2.5, 3: -2, 4: -1.5, 5: -1, 6: -0.5, 7: 0, 8: 0.5, 9: 1, 10: 1.5,
-            11: 2, 12: 2.5, 13: 3, 14: 3.5, 15: 4, 16: 4.5, 17: 5, 18: 5.5, 19: 6, 20: 6.5, 21: 7
-        };
-        const intensity = char.charCodeAt(0) - 100;
-        return intensityMap[intensity] !== undefined ? intensityMap[intensity] : intensity;
-    } catch (error) {
-        console.error(error);
-    }
-}
-
-function padZero(value) {
-    return value < 10 ? '0' + value : value;
 }
 
 function formatDateTimeForUrl(dateTime) {
@@ -167,12 +184,13 @@ let wolfx_websoket = new WebSocket(wolfx_websoket_url);
 // 通信中心部
 P2P_websoket.onmessage = function (event) {
     try {
+        Koisi_voice("newpaper.wav");
         let data = JSON.parse(event.data);
         P2P_list.push(data);
         Savejson(data);
         all_data_list.push(data);
         log_list.push(`P2P data received: ${JSON.stringify(data)} `);
-
+        document.getElementById("now_time").style.color = "green"
         // 最新データのインデックスを取得して表示
         currentIndex = all_data_list.length;
         displayMaintextareaData(currentIndex);
@@ -184,10 +202,14 @@ P2P_websoket.onmessage = function (event) {
 wolfx_websoket.onmessage = function (event) {
     try {
         let data = JSON.parse(event.data);
+        if (data.type != "heartbeat") {
+            all_data_list.push(data);
+            Koisi_voice("newpaper.wav");
+        };
         wolfx_list.push(data);
         Savejson(data);
-        all_data_list.push(data);
         log_list.push(`WolfX data received: ${JSON.stringify(data)} `);
+        document.getElementById("now_time").style.color = "green"
 
         // 最新データのインデックスを取得して表示
         currentIndex = all_data_list.length;
@@ -200,7 +222,10 @@ wolfx_websoket.onmessage = function (event) {
 
 //作業実行部
 function changetime() {
-    document.getElementById("now_time").innerHTML = converted_time(now_time());
+    if (document.getElementById("now_time")) {
+        document.getElementById("now_time").innerText = converted_time(now_time());
+        document.getElementById("now_time").style.color = "#83FF39"
+    }
 }
 
 setInterval(changetime, 1);
@@ -215,7 +240,7 @@ function displayMaintextareaData(index) {
 
     // データが存在しない場合の処理
     if (!all_data_list || all_data_list.length === 0) {
-        mainTextarea.value = "データがありません。";
+        mainTextarea.value = "";
         return;
     }
 
@@ -225,7 +250,7 @@ function displayMaintextareaData(index) {
 
     // 表示するデータの設定
     const selectedData = all_data_list[all_data_list.length - index];
-    mainTextarea.value = `${index}/${all_data_list.length}番目のデータ\n${JSON.stringify(selectedData, null, 2)}`;
+    mainTextarea.value = `${index}/${all_data_list.length}\n${JSON.stringify(selectedData, null, 2)}`;
 
     // インデックスをグローバルに更新
     currentIndex = index;
@@ -258,31 +283,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-function yahooShingenn() {
-    const currentDateTime = new Date();
-    const fiveSecondsAgo = new Date(currentDateTime.getTime() - 3 * 1000);
-    const time_set = formatDateTimeForUrl(fiveSecondsAgo);
-    const apiUrl = `https://weather-kyoshin.west.edge.storage-yahoo.jp/RealTimeData/${time_set}.json`;
-    const xhr = new XMLHttpRequest();
-    xhr.open("GET", apiUrl, false);
-    xhr.send();
-    if (xhr.readyState === 4 && xhr.status === 200) {
-        const yahoo_data = JSON.parse(xhr.responseText);
-        if (yahoo_data.hypoInfo === null) {
-            const dataTime=yahoo_data.realTimeData.dataTime;
-            const strongEarthquake = yahoo_data.realTimeData.intensity;
-            const maxstrongEarthquake = Math.max(...strongEarthquake.split('').map(char => seismicIntensityConversion(char)));
-            return maxstrongEarthquake;
-        }
-    } else {
-        console.error('リクエストが失敗しました。');
-        return null; // エラー時はnullを返すなど、適切なエラー処理を行う
+function Eventdoor() {
+    if (EventTimer(new Date(2025, 0, 1, 0, 0, 0, 0)) === true) {
+        document.getElementById("Event_music").play();
+        koisiarrow_box_change("新年あけおめ");
     }
 }
 
-function yahooShingennkooper(){
-    var get_data=yahooShingenn()
-    document.getElementById("yahoorealtime").textContent = `RS:${get_data}`;
-}
-
-setInterval(yahooShingennkooper, 1000);
+setInterval(Eventdoor, 1);
