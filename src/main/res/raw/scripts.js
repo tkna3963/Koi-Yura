@@ -156,14 +156,14 @@ ${point_text}
 id:${_id} / P2P発表時刻: ${convertDate(time)}`;
 }
 
-function P2P555Convert(data) {
+function P2P561Convert(data) {
     if (!data._id || !data.code || !data.time || !data.areas) return "データに必要な情報が足りません。";
 
     const result = [
         `ID: ${data._id}`,
         `コード: ${data.code}`,
         `受信日時: ${data.time}`,
-        '地域分布情報:',
+        '地域分布情報:',//getValueByCode(readCSV("epsparea.csv"),area.id,"地域")
         ...data.areas.map(area => area.id && area.peer !== undefined ? `地域コード: ${area.id}, ピア数: ${area.peer}` : "不完全な地域データがあります。")
     ];
 
@@ -239,7 +239,7 @@ function P2PSorting(Original) {
     try {
         const codeMap = {
             "551": P2P551Convert,
-            "555": P2P555Convert,
+            "561": P2P561Convert,
             "9611": P2P9611Convert,
             "556": P2P556Convert,
             "552": P2P552Convert
