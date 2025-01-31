@@ -136,113 +136,366 @@ function koisiarrow_box_change(text) {
 
 
 // ===== コンバーター部 =====
-function convertDate(date) {
-    return converted_time(new Date(date));
-}
-
 function P2P551Convert(data) {
-    const { _id, time, issue, earthquake } = data;
-    const { type: info_type, earthquake: { time: occurrence_time, hypocenter, maxScale } } = data;
-    const point_text = data.points.map(point => `${point.pref}${point.addr}:震度${point.scale}`).join('\n');
 
-    return `[${info_type}]
-発生時刻: ${convertDate(occurrence_time)}
-震源情報: ${hypocenter.name}(${hypocenter.latitude}, ${hypocenter.longitude}), 深さ${hypocenter.depth}km, マグニチュード:${hypocenter.magnitude}, 最大震度:${maxScale}
-津波情報: 国内-${earthquake.domesticTsunami}, 海外-${earthquake.foreignTsunami}
+    if (!data || typeof data !== 'object') return '無効なデータです。';
 
-各地の震度:
-${point_text}
+    const issueTime = data.issue?.time || '不明';
+    const issueSource = data.issue?.source || '不明';
+    const issueTypeEnum = {
+        ScalePrompt: '震度速報',
+        Destination: '震源に関する情報',
+        ScaleAndDestination: '震度・震源に関する情報',
+        DetailScale: '各地の震度に関する情報',
+        Foreign: '遠地地震に関する情報',
+        Other: 'その他の情報'
+    };
+    const issueType = issueTypeEnum[data.issue?.type] || '不明';
 
-id:${_id} / P2P発表時刻: ${convertDate(time)}`;
+    const correctEnum = {
+        None: 'なし',
+        Unknown: '不明',
+        ScaleOnly: '震度',
+        DestinationOnly: '震源',
+        ScaleAndDestination: '震度・震源'
+    };
+    const correct = correctEnum[data.issue?.correct] || '不明';
+
+    const eqTime = data.earthquake?.time || '不明';
+    const hypoName = data.earthquake?.hypocenter?.name || '不明';
+    const latitude = data.earthquake?.hypocenter?.latitude ?? '不明';
+    const longitude = data.earthquake?.hypocenter?.longitude ?? '不明';
+    const depth = data.earthquake?.hypocenter?.depth ?? '不明';
+    const magnitude = data.earthquake?.hypocenter?.magnitude ?? '不明';
+
+    const scaleEnum = {
+        '-1': '震度情報なし',
+        10: '震度1',
+        20: '震度2',
+        30: '震度3',
+        40: '震度4',
+        45: '震度5弱',
+        50: '震度5強',
+        55: '震度6弱',
+        60: '震度6強',
+        70: '震度7'
+    };
+    const maxScale = scaleEnum[data.earthquake?.maxScale] || '不明';
+
+    const tsunamiEnum = {
+        None: 'なし',
+        Unknown: '不明',
+        Checking: '調査中',
+        NonEffective: '若干の海面変動が予想されるが、被害の心配なし',
+        Watch: '津波注意報',
+        Warning: '津波予報(種類不明)'
+    };
+
+    const foreignTsunamiEnum = {
+        None: 'なし',
+        Unknown: '不明',
+        Checking: '調査中',
+        NonEffectiveNearby: '震源の近傍で小さな津波の可能性があるが、被害の心配なし',
+        WarningNearby: '震源の近傍で津波の可能性がある',
+        WarningPacific: '太平洋で津波の可能性がある',
+        WarningPacificWide: '太平洋の広域で津波の可能性がある',
+        WarningIndian: 'インド洋で津波の可能性がある',
+        WarningIndianWide: 'インド洋の広域で津波の可能性がある',
+        Potential: '一般にこの規模では津波の可能性がある'
+    };
+
+    const domesticTsunami = tsunamiEnum[data.earthquake?.domesticTsunami] || '不明';
+    const foreignTsunami = foreignTsunamiEnum[data.earthquake?.foreignTsunami] || '不明';
+
+    let pointsInfo = '';
+    if (Array.isArray(data.points)) {
+        pointsInfo = data.points.map(point => {
+            return `  - ${point.pref} ${point.addr} (震度: ${scaleEnum[point.scale] || '不明'})`;
+        }).join('\n');
+    } else {
+        pointsInfo = '観測データなし';
+    }
+
+    const comment = data.comments?.freeFormComment || '';
+
+    return `【地震情報】
+発表: ${issueTime} (${issueSource})
+種類: ${issueType} (訂正: ${correct})
+
+発生日時: ${eqTime}
+震源: ${hypoName} (緯度: ${latitude}, 経度: ${longitude}, 深さ: ${depth}km)
+マグニチュード: ${magnitude}
+最大震度: ${maxScale}
+
+国内津波情報: ${domesticTsunami}
+海外津波情報: ${foreignTsunami}
+
+【各地の震度】
+${pointsInfo}
+
+${comment ? `【コメント】\n${comment}` : ''}`;
 }
 
-function P2P555Convert(data) {
-    if (!data._id || !data.code || !data.time || !data.areas) return "データに必要な情報が足りません。";
-
-    const result = [
-        `ID: ${data._id}`,
-        `コード: ${data.code}`,
-        `受信日時: ${data.time}`,
-        '地域分布情報:',//getValueByCode(readCSV("epsparea.csv"),area.id,"地域")
-        ...data.areas.map(area => area.id && area.peer !== undefined ? `地域コード: ${area.id}, ピア数: ${area.peer}` : "不完全な地域データがあります。")
-    ];
-
-    return result.join("\n");
+function P2P561Convert(jsonData) {
+    try {
+        const data = JSON.parse(jsonData);
+        
+        if (data.code !== 561) {
+            throw new Error("無効な情報コードです。");
+        }
+        
+        return `地震感知情報
+ID: ${data._id}
+受信日時: ${data.time}
+地域コード: ${data.area}`;
+    } catch (error) {
+        return `エラー: ${error.message}`;
+    }
 }
+
+function P2P555Convert(jsonData) {
+    if (!jsonData || jsonData.code !== 555 || !jsonData.areas) {
+        return "データが正しくありません。";
+    }
+
+    const formattedTime = new Date(jsonData.time).toLocaleString("ja-JP", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    });
+
+    let report = `受信日時: ${formattedTime}\n\n`;
+    report += `ピアの地域分布:\n`;
+
+    jsonData.areas.forEach(area => {
+        report += `- 地域コード: ${area.id}\n`;
+        report += `  ピア数: ${area.peer}人\n`;
+    });
+
+    return report;
+}
+
+function P2P556Convert(json) {
+    if (!json || json.code !== 556) {
+        return "無効な緊急地震速報のデータです。";
+    }
+    
+    let message = "【緊急地震速報】\n";
+    
+    if (json.test) {
+        message += "※これはテストです※\n";
+    }
+    
+    message += `受信時刻: ${json.time}\n`;
+    
+    if (json.cancelled) {
+        return message + "この緊急地震速報は取り消されました。";
+    }
+    
+    if (json.earthquake) {
+        const eq = json.earthquake;
+        message += `地震発生時刻: ${eq.originTime}\n`;
+        message += `地震発現時刻: ${eq.arrivalTime}\n`;
+        
+        if (eq.hypocenter) {
+            const hypo = eq.hypocenter;
+            message += `震源地: ${hypo.name} (${hypo.reduceName})\n`;
+            message += `緯度: ${hypo.latitude}, 経度: ${hypo.longitude}\n`;
+            message += `深さ: ${hypo.depth} km\n`;
+            message += `マグニチュード: ${hypo.magnitude}\n`;
+        }
+    }
+    
+    if (json.issue) {
+        message += `発表時刻: ${json.issue.time}\n`;
+        message += `識別情報: ${json.issue.eventId}\n`;
+        message += `情報番号: ${json.issue.serial}\n`;
+    }
+    
+    if (json.areas && json.areas.length > 0) {
+        message += "\n影響地域:\n";
+        json.areas.forEach(area => {
+            const scaleMap = {
+                "-1": "不明", "0": "震度0", "10": "震度1", "20": "震度2", "30": "震度3", "40": "震度4", 
+                "45": "震度5弱", "50": "震度5強", "55": "震度6弱", "60": "震度6強", "70": "震度7", "99": "～程度以上"
+            };
+            const kindMap = {
+                10: "主要動未到達と予測", 
+                11: "主要動既到達と予測", 
+                19: "主要動の到達予想なし（PLUM法）"
+            };
+            message += `府県: ${area.pref}, 地域: ${area.name}\n`;
+            message += `予測震度: ${scaleMap[area.scaleFrom]} ～ ${scaleMap[area.scaleTo]}\n`;
+            message += `警報: ${kindMap[area.kindCode] || "不明"}\n`;
+            if (area.arrivalTime) {
+                message += `主要動到達予測時刻: ${area.arrivalTime}\n`;
+            }
+        });
+    }
+    
+    return message;
+}
+
+function convertConfidenceToLabel(confidence) {
+    if (confidence < 0) {
+        return 'F';
+    } else if (confidence < 0.2) {
+        return 'E';
+    } else if (confidence < 0.4) {
+        return 'D';
+    } else if (confidence < 0.6) {
+        return 'C';
+    } else if (confidence < 0.8) {
+        return 'B';
+    } else if (confidence >= 0.8) {
+        return 'A';
+    }
+}
+
 
 function P2P9611Convert(data) {
-    const { _id, code, time, count, confidence, started_at, updated_at, area_confidences } = data;
+    let output = "";
 
-    const result = [
-        `評価日時: ${time}`,
-        `評価ID: ${_id}`,
-        `情報コード: ${code}`,
-        `件数: ${count}`,
-        `信頼度: ${confidence}`,
-        `開始日時: ${started_at}`,
-        `更新日時: ${updated_at}`,
-        '地域ごとの信頼度:',
-        ...Object.entries(area_confidences).map(([regionCode, region]) =>
-            `地域コード: ${regionCode}\n信頼度: ${region.confidence}\n件数: ${region.count}\n信頼度表示: ${region.display}`
-        )
-    ];
+    // 基本情報の出力
+    output += `評価ID: ${data._id}\n`;
+    output += `情報コード: ${data.code}\n`;
+    output += `評価日時: ${data.time}\n`;
+    output += `件数: ${data.count}\n`;
+    output += `信頼度: ${convertConfidenceToLabel(data.confidence)}\n`;
+    output += `開始日時: ${data.started_at}\n`;
+    output += `更新日時: ${data.updated_at}\n`;
 
-    return result.join("\n");
+    // 地域ごとの信頼度情報の処理
+    if (data.area_confidences) {
+        output += `地域ごとの信頼度情報:\n`;
+        for (let regionCode in data.area_confidences) {
+            let area = data.area_confidences[regionCode];
+            output += `地域コード: ${regionCode}\n`;
+            output += `信頼度: ${convertConfidenceToLabel(area.confidence)}\n`;
+            output += `件数: ${area.count}\n`;
+            output += `表示: ${area.display}\n`;
+        }
+    }
+
+    return output;
 }
 
-function P2P556Convert(data) {
-    const { _id, code, time, earthquake, issue, cancelled, areas } = data;
-    const report = [
-        `緊急地震速報（警報）`,
-        `ID: ${_id}`,
-        `コード: ${code}`,
-        `受信日時: ${time}`,
-        `テスト: ${data.test ? 'はい' : 'いいえ'}`,
-        earthquake && `地震情報:
-  発生時刻: ${earthquake.originTime}
-  震源情報: ${earthquake.hypocenter?.name}`,
-        issue && `発表情報:
-  発表時刻: ${issue.time}
-  イベントID: ${issue.eventId}`,
-        cancelled !== undefined && `取消: ${cancelled ? 'あり' : 'なし'}`,
-        areas && areas.length && `細分区域:
-${areas.map(area =>
-            `府県予報区: ${area.pref}\n地域名: ${area.name}\n最大予測震度: ${area.scaleFrom}～${area.scaleTo}\n警報コード: ${area.kindCode}\n予測時刻: ${area.arrivalTime}`
-        ).join("\n\n")}`
-    ];
+function P2P552Convert(jsonData) {
+    // ヘルパー関数：Enumの意味を返す
+    const getEnumDescription = (enumType, value) => {
+      const enumMap = {
+        grade: {
+          "MajorWarning": "大津波警報",
+          "Warning": "津波警報",
+          "Watch": "津波注意報",
+          "Unknown": "不明"
+        },
+        condition: {
+          "ただちに津波来襲と予測": "津波が直ちに到達する予測です。",
+          "津波到達中と推測": "津波が現在到達中と推測されています。",
+          "第１波の到達を確認": "第1波の到達が確認されました。"
+        },
+        maxHeight: {
+          "巨大": "非常に大きな津波が予測されます。",
+          "高い": "高い津波が予測されます。",
+          "１０ｍ超": "10メートルを超える津波が予測されます。",
+          "１０ｍ": "約10メートルの津波が予測されます。",
+          "５ｍ": "約5メートルの津波が予測されます。",
+          "３ｍ": "約3メートルの津波が予測されます。",
+          "１ｍ": "約1メートルの津波が予測されます。",
+          "０．２ｍ未満": "0.2メートル未満の津波が予測されます。"
+        }
+      };
+      return enumMap[enumType] && enumMap[enumType][value] ? enumMap[enumType][value] : "情報がありません";
+    };
+  
+    let result = "";
+    
+    // IDとコード
+    result += `津波予報ID: ${jsonData._id}\n`;
+    result += `情報コード: ${jsonData.code}\n`;
+    
+    // 受信日時
+    result += `受信日時: ${jsonData.time}\n`;
+    
+    // 予報のキャンセル状態
+    result += `津波予報が解除されましたか: ${jsonData.cancelled ? "はい" : "いいえ"}\n`;
+    
+    // 発表元の情報
+    result += `発表元: ${jsonData.issue.source}\n`;
+    result += `発表日時: ${jsonData.issue.time}\n`;
+    result += `発表種類: ${jsonData.issue.type}\n`;
+    
+    // 予報の詳細情報
+    if (jsonData.areas && jsonData.areas.length > 0) {
+      jsonData.areas.forEach(area => {
+        result += `\n津波予報区名: ${area.name}\n`;
+        result += `津波予報の種類: ${getEnumDescription("grade", area.grade)}\n`;
+        result += `直ちに津波が来襲すると予測されていますか: ${area.immediate ? "はい" : "いいえ"}\n`;
+  
+        // 第1波の到達予想時刻
+        if (area.firstHeight) {
+          result += `第1波の到達予想時刻: ${area.firstHeight.arrivalTime}\n`;
+          result += `到達予測状態: ${getEnumDescription("condition", area.firstHeight.condition)}\n`;
+        }
+  
+        // 最大津波高さ
+        if (area.maxHeight) {
+          result += `最大津波高さ: ${getEnumDescription("maxHeight", area.maxHeight.description)}\n`;
+          result += `予想高さ (数値表現): ${area.maxHeight.value} メートル\n`;
+        }
+      });
+    } else {
+      result += "津波予報の詳細情報はありません。\n";
+    }
+    
+    return result;
+  }
+  
+  function P2P554Convert(data) {
+    if (!data._id || !data.code || !data.time || !data.type) {
+        return "入力データが不完全です。";
+    }
 
-    return report.filter(Boolean).join("\n");
-}
+    // 時刻の整形
+    let formattedTime = new Date(data.time).toLocaleString('ja-JP', { hour12: false });
 
-function P2P552Convert(data) {
-    const { _id, code, time, cancelled, issue, areas } = data;
-    const report = [
-        `津波予報`,
-        `ID: ${_id}`,
-        `コード: ${code}`,
-        `受信日時: ${time}`,
-        `津波予報解除: ${cancelled ? '解除' : '有効'}`,
-        issue && `発表元情報:
-  発表元: ${issue.source}
-  発表日時: ${issue.time}
-  発表種類: ${issue.type}`,
-        areas && areas.length && `津波予報詳細:
-${areas.map(area =>
-            `予報区名: ${area.name}\n予報種類: ${area.grade}\n直ちに津波来襲: ${area.immediate ? 'はい' : 'いいえ'}\n第1波の到達予想時刻: ${area.firstHeight?.arrivalTime}\n予想される津波の高さ: ${area.maxHeight?.description}, ${area.maxHeight?.value}m`
-        ).join("\n\n")}`
-    ];
+    // Enumの処理
+    let typeDescription = '';
+    switch (data.type) {
+        case 'Full':
+            typeDescription = 'チャイム＋音声の検出です。';
+            break;
+        case 'Chime':
+            typeDescription = 'チャイムのみの検出です（未実装）。';
+            break;
+        default:
+            typeDescription = '未知の検出タイプです。';
+            break;
+    }
 
-    return report.filter(Boolean).join("\n");
+    // 結果を文章で返す
+    return `
+    情報ID: ${data._id}
+    情報コード: ${data.code}
+    受信日時: ${formattedTime}
+    検出種類: ${data.type} (${typeDescription})
+    `;
 }
 
 function P2PSorting(Original) {
     try {
         const codeMap = {
-            "551": P2P551Convert,
-            "555": P2P555Convert,
-            "9611": P2P9611Convert,
-            "556": P2P556Convert,
-            "552": P2P552Convert
+            551:P2P551Convert,
+            552: P2P552Convert,
+            554: P2P554Convert,
+            555: P2P555Convert,
+            556: P2P556Convert,
+            561: P2P561Convert,
+            9611:P2P9611Convert
         };
 
         return codeMap[Original.code] ? codeMap[Original.code](Original) : Original.code;
@@ -251,8 +504,6 @@ function P2PSorting(Original) {
         return "エラーが発生しました";
     }
 }
-
-
 
 // ===== 通信中心部 =====
 const P2P_websoket_url = 'wss://api.p2pquake.net/v2/ws';
@@ -358,12 +609,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     if (all_data_list && all_data_list.length > 0) {
-        pagebar.max = all_data_list.length-1;
+        pagebar.max = all_data_list.length - 1;
         pagebar.value = 1;
         displayMaintextareaData(1);
     } else {
         console.warn("all_data_list is empty, setting pagebar max to 100.");
-        pagebar.max = 100;
+        pagebar.max =  all_data_list.length - 1;
         pagebar.value = 1;
         displayMaintextareaData(1);
     }
