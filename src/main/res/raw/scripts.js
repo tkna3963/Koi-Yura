@@ -156,7 +156,7 @@ ${point_text}
 id:${_id} / P2P発表時刻: ${convertDate(time)}`;
 }
 
-function P2P561Convert(data) {
+function P2P555Convert(data) {
     if (!data._id || !data.code || !data.time || !data.areas) return "データに必要な情報が足りません。";
 
     const result = [
@@ -239,7 +239,7 @@ function P2PSorting(Original) {
     try {
         const codeMap = {
             "551": P2P551Convert,
-            "561": P2P561Convert,
+            "555": P2P555Convert,
             "9611": P2P9611Convert,
             "556": P2P556Convert,
             "552": P2P552Convert
