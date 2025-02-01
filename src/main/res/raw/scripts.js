@@ -3,9 +3,7 @@ let P2P_list = []; // P2Pサーバーからのデータを一時的に保存
 let all_data_list = []; // 保存されたすべてのデータ
 let log_list = []; // ログデータ
 let converted_data_list = []; // フォーマット変換されたデータ
-let reconnectInterval = 5000; // WebSocket再接続間隔（ms）
 let currentIndex = 1; // 表示中のデータインデックス
-let isWevSocketConnected = true; // WebSocket接続状態
 
 // ===== 雑務関数部 =====
 function now_time() {
@@ -506,62 +504,88 @@ function P2PSorting(Original) {
     }
 }
 
-// ===== 通信中心部 =====
 const P2P_websoket_url = 'wss://api.p2pquake.net/v2/ws';
+let P2P_websoket;
+let isWebSocketConnected = false;
+let reconnectAttempts = 0;
+const reconnectInterval = 1000; // 再接続のインターバル（1秒）
 
-let P2P_websoket = new WebSocket(P2P_websoket_url);
+// WebSocket接続時の処理
+function createWebSocketConnection() {
+    P2P_websoket = new WebSocket(P2P_websoket_url);
+    
+    P2P_websoket.onopen = function () {
+        console.log("WebSocket connected.");
+        isWebSocketConnected = true;
+        reconnectAttempts = 0;
+        document.getElementById("now_time").style.color = "orange";
+    };
 
-P2P_websoket.onmessage = function (event) {
-    try {
-        Koisi_voice("newpaper.wav");
-        let data = JSON.parse(event.data);
-        P2P_list.push(data);
-        Savejson(data);
-        all_data_list.push(data);
-        log_list.push(`P2P data received: ${JSON.stringify(data)} `);
-        document.getElementById("now_time").style.color = "green";
-        currentIndex = all_data_list.length;
-        displayMaintextareaData(currentIndex);
-    } catch (error) {
-        console.error("Error processing P2P WebSocket data:", error);
-    }
-};
+    P2P_websoket.onmessage = function (event) {
+        try {
+            Koisi_voice("newpaper.wav");
+            let data = JSON.parse(event.data);
+            P2P_list.push(data);
+            Savejson(data);
+            all_data_list.push(data);
+            log_list.push(`P2P data received: ${JSON.stringify(data)} `);
+            document.getElementById("now_time").style.color = "orange";
+            isWebSocketConnected = true;
+            currentIndex = all_data_list.length;
+            displayMaintextareaData(currentIndex);
+        } catch (error) {
+            console.error("Error processing P2P WebSocket data:", error);
+        }
+    };
 
-P2P_websoket.onerror = function (error) {
-    console.error("WebSocket error:", error);
-    reconnectWebSocket();
-};
+    P2P_websoket.onerror = function (error) {
+        console.error("WebSocket error:", error);
+        isWebSocketConnected = false;
+        attemptReconnect();
+    };
 
-P2P_websoket.onclose = function () {
-    console.log("WebSocket closed. Attempting to reconnect...");
-    reconnectWebSocket();
-};
-
-function reconnectWebSocket() {
-    setTimeout(() => {
-        P2P_websoket = new WebSocket(P2P_websoket_url);
-        P2P_websoket.onmessage = P2P_websoket.onmessage;
-        P2P_websoket.onerror = P2P_websoket.onerror;
-        P2P_websoket.onclose = P2P_websoket.onclose;
-    }, reconnectInterval);
+    P2P_websoket.onclose = function (event) {
+        console.log("WebSocket closed with code: " + event.code);
+        isWebSocketConnected = false;
+        attemptReconnect();
+    };
 }
 
-// ===== 作業実行部 =====
+// 再接続を試みる関数
+function attemptReconnect() {
+    if (!isWebSocketConnected) {
+        reconnectAttempts++;
+        console.log(`Reconnecting... Attempt ${reconnectAttempts}`);
+        setTimeout(() => {
+            createWebSocketConnection();  // 新しいWebSocketインスタンスを作成
+        }, reconnectInterval);
+    }
+}
+
+// 接続状況を表示
 function changetime() {
     const nowTimeElem = document.getElementById("now_time");
     if (nowTimeElem) {
-        // インターネットに接続されているか確認
         if (navigator.onLine) {
-            nowTimeElem.style.color = "#83FF39";  // 接続されている場合は緑
-            nowTimeElem.innerText = converted_time(now_time());
+            if (isWebSocketConnected) {
+                nowTimeElem.style.color = "#FF8C00";  // 接続が復旧した場合はオレンジ
+                nowTimeElem.innerText = converted_time(now_time());
+            } else {
+                nowTimeElem.style.color = "red";  // WebSocketが切れている場合は赤
+                nowTimeElem.innerText = "RC"; // 再接続中
+            }
         } else {
-            nowTimeElem.style.color = "red";  // 接続されていない場合は赤
+            nowTimeElem.style.color = "red";  // インターネット接続がない場合は赤
+            nowTimeElem.innerText = "NC"; // 接続がない場合のテキスト
         }
     }
 }
 
 
-setInterval(changetime, 1);
+// 最初にWebSocket接続を開始
+createWebSocketConnection();
+
+setInterval(changetime, 1); // 1秒ごとに時刻と接続状況を確認
 
 function addMenuItem(text) {
     const infomenu = document.getElementById("infomenu");
@@ -616,6 +640,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     pagebar.addEventListener("input", (event) => {
         const selectedPage = parseInt(event.target.value, 10);
+        if (isNaN(selectedPage)) {
+            console.error("Invalid page number:", event.target.value);
+            return;
+        }
         console.log("Selected Page:", selectedPage);
         displayMaintextareaData(selectedPage);
     });
