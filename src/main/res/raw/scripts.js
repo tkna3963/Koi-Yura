@@ -5,6 +5,7 @@ let log_list = []; // ログデータ
 let converted_data_list = []; // フォーマット変換されたデータ
 let reconnectInterval = 5000; // WebSocket再接続間隔（ms）
 let currentIndex = 1; // 表示中のデータインデックス
+let isWevSocketConnected = true; // WebSocket接続状態
 
 // ===== 雑務関数部 =====
 function now_time() {
@@ -237,21 +238,21 @@ ${comment ? `【コメント】\n${comment}` : ''}`;
 }
 
 function P2P561Convert(jsonData) {
-    try {
-        const data = JSON.parse(jsonData);
-        
-        if (data.code !== 561) {
-            throw new Error("無効な情報コードです。");
-        }
-        
-        return `地震感知情報
-ID: ${data._id}
-受信日時: ${data.time}
-地域コード: ${data.area}`;
-    } catch (error) {
-        return `エラー: ${error.message}`;
-    }
+    const { _id, area, code, created_at, expire, hop, time, uid } = jsonData;
+
+    return `
+データID: ${_id}
+エリア: ${area}
+コード: ${code}
+作成日時: ${created_at}
+有効期限: ${expire}
+ホップ数: ${hop}
+投稿時間: ${time}
+ユーザーID: ${uid}
+    `;
 }
+
+
 
 function P2P555Convert(jsonData) {
     if (!jsonData || jsonData.code !== 555 || !jsonData.areas) {
@@ -272,7 +273,7 @@ function P2P555Convert(jsonData) {
 
     jsonData.areas.forEach(area => {
         report += `- 地域コード: ${area.id}\n`;
-        report += `  ピア数: ${area.peer}人\n`;
+        report += `  ピア数: ${area.peer}Peers\n`;
     });
 
     return report;
@@ -549,10 +550,16 @@ function reconnectWebSocket() {
 function changetime() {
     const nowTimeElem = document.getElementById("now_time");
     if (nowTimeElem) {
-        nowTimeElem.innerText = converted_time(now_time());
-        nowTimeElem.style.color = "#83FF39";
+        // インターネットに接続されているか確認
+        if (navigator.onLine) {
+            nowTimeElem.style.color = "#83FF39";  // 接続されている場合は緑
+            nowTimeElem.innerText = converted_time(now_time());
+        } else {
+            nowTimeElem.style.color = "red";  // 接続されていない場合は赤
+        }
     }
 }
+
 
 setInterval(changetime, 1);
 
@@ -567,6 +574,7 @@ function addMenuItem(text) {
 function displayMaintextareaData(index) {
     try {
         const mainTextarea = document.getElementById("maintextarea");
+        const pagebar = document.getElementById("pagebar");
 
         if (!mainTextarea) {
             console.error("Element with id 'maintextarea' not found.");
@@ -578,22 +586,26 @@ function displayMaintextareaData(index) {
             return;
         }
 
-        // インデックスが範囲内か確認
+        // インデックスの範囲を調整
         const validIndex = Math.min(Math.max(index, 1), all_data_list.length);
-        const selectedData = all_data_list[validIndex - 1]; // インデックスは1ベース
+        const selectedData = all_data_list[validIndex - 1]; // 1ベース
 
         // テキストエリアにデータを表示
         mainTextarea.value = `${validIndex}/${all_data_list.length}\n${P2PSorting(selectedData)}`;
 
         // メニュー項目を追加
         addMenuItem(`${selectedData.code}情報-${selectedData.time}`);
+
+        // 現在のインデックスを更新し、スライダーを同期
         currentIndex = validIndex;
+        if (pagebar) {
+            pagebar.value = validIndex;
+        }
     } catch (error) {
         console.error("displayMaintextareaDataエラー:", error);
     }
 }
 
-// ページバーの値が変更された時の処理
 document.addEventListener("DOMContentLoaded", () => {
     const pagebar = document.getElementById("pagebar");
 
@@ -608,13 +620,13 @@ document.addEventListener("DOMContentLoaded", () => {
         displayMaintextareaData(selectedPage);
     });
 
-    if (all_data_list && all_data_list.length > 0) {
-        pagebar.max = all_data_list.length - 1;
-        pagebar.value = 1;
+    if (all_data_list.length > 0) {
+        pagebar.max = all_data_list.length; // 最大値をデータ数に設定
+        pagebar.value = 1; // 初期ページを1に
         displayMaintextareaData(1);
     } else {
         console.warn("all_data_list is empty, setting pagebar max to 100.");
-        pagebar.max =  all_data_list.length - 1;
+        pagebar.max = 100;
         pagebar.value = 1;
         displayMaintextareaData(1);
     }

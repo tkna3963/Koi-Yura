@@ -14,7 +14,7 @@
 <body>
     <h1 id="now_time">2000/01/01 00:00:00(00)</h1>
     <textarea id="maintextarea" rows="1" readonly></textarea>
-    <input  type="range" id="pagebar" min="1" max="100" value="1">
+    <input type="range" id="pagebar" min="1" max="100" value="1">
     <div class="koisiarrow_box">古明地こいしだよ～～</div>
     <img src="baclgroundimg.jpg" id="back">
     <div id="mapcontainer"></div>
@@ -57,12 +57,11 @@
         toggleinfoMenuBtn.addEventListener('click', () => {
             infomenu.classList.toggle('open');
         });
-
+    </script>
+    <script>
         function koisi_toutchdo() {
             Koisi_voice("koisi_toutch.wav");
-        }
-    </script>
-
+        }</script>
     <script>
         function init() {
             //地図を表示するdiv要素のidを設定
@@ -92,6 +91,7 @@
             }
         });
     </script>
+
 </body>
 
 </html>

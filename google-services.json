@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "549748733922",
+    "project_id": "koiyura",
+    "storage_bucket": "koiyura.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:549748733922:android:371c44115727eb16aaebbb",
+        "android_client_info": {
+          "package_name": "com.example.koi_yura"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhngC3Ub74hxQmBi9_NuIa3bQ2AchczGM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
