@@ -19,20 +19,27 @@ function speakTextAndroid(text) {
 }
 
 function Savejson(value) {
+    const maxItems = 1000; // 最大保存件数
     const existingData = localStorage.getItem("BackupJson");
     let newData;
+
     if (existingData) {
         newData = JSON.parse(existingData);
         if (Array.isArray(newData)) {
             newData.push(value);
+            if (newData.length > maxItems) {
+                newData = newData.slice(newData.length - maxItems); // 1000件超えたら古いもの削除
+            }
         } else {
             newData = [newData, value];
         }
     } else {
         newData = [value];
     }
+
     localStorage.setItem("BackupJson", JSON.stringify(newData));
 }
+
 
 //csvread
 function readCSV(path) {
@@ -135,12 +142,12 @@ function koisiarrow_box_change(text) {
 
 
 // ===== コンバーター部 =====
+
+
 function P2P551Convert(data) {
 
     if (!data || typeof data !== 'object') return '無効なデータです。';
-
     const issueTime = data.issue?.time || '不明';
-    const issueSource = data.issue?.source || '不明';
     const issueTypeEnum = {
         ScalePrompt: '震度速報',
         Destination: '震源に関する情報',
@@ -159,7 +166,6 @@ function P2P551Convert(data) {
         ScaleAndDestination: '震度・震源'
     };
     const correct = correctEnum[data.issue?.correct] || '不明';
-
     const eqTime = data.earthquake?.time || '不明';
     const hypoName = data.earthquake?.hypocenter?.name || '不明';
     const latitude = data.earthquake?.hypocenter?.latitude ?? '不明';
@@ -180,7 +186,6 @@ function P2P551Convert(data) {
         70: '震度7'
     };
     const maxScale = scaleEnum[data.earthquake?.maxScale] || '不明';
-
     const tsunamiEnum = {
         None: 'なし',
         Unknown: '不明',
@@ -189,7 +194,6 @@ function P2P551Convert(data) {
         Watch: '津波注意報',
         Warning: '津波予報(種類不明)'
     };
-
     const foreignTsunamiEnum = {
         None: 'なし',
         Unknown: '不明',
@@ -202,73 +206,61 @@ function P2P551Convert(data) {
         WarningIndianWide: 'インド洋の広域で津波の可能性がある',
         Potential: '一般にこの規模では津波の可能性がある'
     };
-
     const domesticTsunami = tsunamiEnum[data.earthquake?.domesticTsunami] || '不明';
     const foreignTsunami = foreignTsunamiEnum[data.earthquake?.foreignTsunami] || '不明';
-
     let pointsInfo = '';
     if (Array.isArray(data.points)) {
         pointsInfo = data.points.map(point => {
-            return `  - ${point.pref} ${point.addr} (震度: ${scaleEnum[point.scale] || '不明'})`;
+            return `  - ${point.pref}-${point.addr}:${scaleEnum[point.scale] || '不明'})`;
         }).join('\n');
     } else {
         pointsInfo = '観測データなし';
     }
-
     const comment = data.comments?.freeFormComment || '';
+    return `
+[${issueType}](訂正:${correct})
+情報発表時刻: ${issueTime}
 
-    return `【地震情報】
-発表: ${issueTime} (${issueSource})
-種類: ${issueType} (訂正: ${correct})
+地震発生時刻:${eqTime}
+震源:${hypoName} (緯度:${latitude},経度: ${longitude},深さ:${depth}km)    
+最大震度:${maxScale}
+マグニチュード:${magnitude}
 
-発生日時: ${eqTime}
-震源: ${hypoName} (緯度: ${latitude}, 経度: ${longitude}, 深さ: ${depth}km)
-マグニチュード: ${magnitude}
-最大震度: ${maxScale}
+津波の可能性:${domesticTsunami}(海外:${foreignTsunami})
 
-国内津波情報: ${domesticTsunami}
-海外津波情報: ${foreignTsunami}
-
-【各地の震度】
+各地の震度】
 ${pointsInfo}
 
-${comment ? `【コメント】\n${comment}` : ''}`;
+${comment ? `【気象庁のコメント】\n${comment}` : ''}
+;`
 }
+
 
 function P2P561Convert(jsonData) {
     const { _id, area, code, created_at, expire, hop, time, uid } = jsonData;
-
     return `
-データID: ${_id}
-エリア: ${area}
-コード: ${code}
 作成日時: ${created_at}
 有効期限: ${expire}
-ホップ数: ${hop}
 投稿時間: ${time}
+エリア: ${area}
+コード: ${code}
 ユーザーID: ${uid}
+データID: ${_id}
+ホップ数: ${hop}
     `;
 }
-
-
 
 function P2P555Convert(jsonData) {
     if (!jsonData || jsonData.code !== 555 || !jsonData.areas) {
         return "データが正しくありません。";
     }
-
-    const formattedTime = new Date(jsonData.time).toLocaleString("ja-JP", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
+    const countpeer=0;
+    jsonData.areas.forEach(area => {
+        countpeer +=area.peer;
     });
-
-    let report = `受信日時: ${formattedTime}\n\n`;
+    let report = `受信日時: ${jsonData.time}\n\n`;
+    report += `ピア合計数: ${countpeer}Peers`;
     report += `ピアの地域分布:\n`;
-
     jsonData.areas.forEach(area => {
         report += `- 地域コード: ${area.id}\n`;
         report += `  ピア数: ${area.peer}Peers\n`;
@@ -281,24 +273,24 @@ function P2P556Convert(json) {
     if (!json || json.code !== 556) {
         return "無効な緊急地震速報のデータです。";
     }
-    
-    let message = "【緊急地震速報】\n";
-    
+
+    let message = `【緊急地震速報】\n`;
+
     if (json.test) {
-        message += "※これはテストです※\n";
+        message += `※これはテストです※\n`;
     }
-    
+
     message += `受信時刻: ${json.time}\n`;
-    
+
     if (json.cancelled) {
-        return message + "この緊急地震速報は取り消されました。";
+        return message + `この緊急地震速報は取り消されました。`;
     }
-    
+
     if (json.earthquake) {
         const eq = json.earthquake;
         message += `地震発生時刻: ${eq.originTime}\n`;
         message += `地震発現時刻: ${eq.arrivalTime}\n`;
-        
+
         if (eq.hypocenter) {
             const hypo = eq.hypocenter;
             message += `震源地: ${hypo.name} (${hypo.reduceName})\n`;
@@ -307,23 +299,23 @@ function P2P556Convert(json) {
             message += `マグニチュード: ${hypo.magnitude}\n`;
         }
     }
-    
+
     if (json.issue) {
         message += `発表時刻: ${json.issue.time}\n`;
         message += `識別情報: ${json.issue.eventId}\n`;
         message += `情報番号: ${json.issue.serial}\n`;
     }
-    
+
     if (json.areas && json.areas.length > 0) {
-        message += "\n影響地域:\n";
+        message += `\n影響地域:\n`;
         json.areas.forEach(area => {
             const scaleMap = {
-                "-1": "不明", "0": "震度0", "10": "震度1", "20": "震度2", "30": "震度3", "40": "震度4", 
+                "-1": "不明", "0": "震度0", "10": "震度1", "20": "震度2", "30": "震度3", "40": "震度4",
                 "45": "震度5弱", "50": "震度5強", "55": "震度6弱", "60": "震度6強", "70": "震度7", "99": "～程度以上"
             };
             const kindMap = {
-                10: "主要動未到達と予測", 
-                11: "主要動既到達と予測", 
+                10: "主要動未到達と予測",
+                11: "主要動既到達と予測",
                 19: "主要動の到達予想なし（PLUM法）"
             };
             message += `府県: ${area.pref}, 地域: ${area.name}\n`;
@@ -334,7 +326,7 @@ function P2P556Convert(json) {
             }
         });
     }
-    
+
     return message;
 }
 
@@ -385,76 +377,76 @@ function P2P9611Convert(data) {
 function P2P552Convert(jsonData) {
     // ヘルパー関数：Enumの意味を返す
     const getEnumDescription = (enumType, value) => {
-      const enumMap = {
-        grade: {
-          "MajorWarning": "大津波警報",
-          "Warning": "津波警報",
-          "Watch": "津波注意報",
-          "Unknown": "不明"
-        },
-        condition: {
-          "ただちに津波来襲と予測": "津波が直ちに到達する予測です。",
-          "津波到達中と推測": "津波が現在到達中と推測されています。",
-          "第１波の到達を確認": "第1波の到達が確認されました。"
-        },
-        maxHeight: {
-          "巨大": "非常に大きな津波が予測されます。",
-          "高い": "高い津波が予測されます。",
-          "１０ｍ超": "10メートルを超える津波が予測されます。",
-          "１０ｍ": "約10メートルの津波が予測されます。",
-          "５ｍ": "約5メートルの津波が予測されます。",
-          "３ｍ": "約3メートルの津波が予測されます。",
-          "１ｍ": "約1メートルの津波が予測されます。",
-          "０．２ｍ未満": "0.2メートル未満の津波が予測されます。"
-        }
-      };
-      return enumMap[enumType] && enumMap[enumType][value] ? enumMap[enumType][value] : "情報がありません";
+        const enumMap = {
+            grade: {
+                "MajorWarning": "大津波警報",
+                "Warning": "津波警報",
+                "Watch": "津波注意報",
+                "Unknown": "不明"
+            },
+            condition: {
+                "ただちに津波来襲と予測": "津波が直ちに到達する予測です。",
+                "津波到達中と推測": "津波が現在到達中と推測されています。",
+                "第１波の到達を確認": "第1波の到達が確認されました。"
+            },
+            maxHeight: {
+                "巨大": "非常に大きな津波が予測されます。",
+                "高い": "高い津波が予測されます。",
+                "１０ｍ超": "10メートルを超える津波が予測されます。",
+                "１０ｍ": "約10メートルの津波が予測されます。",
+                "５ｍ": "約5メートルの津波が予測されます。",
+                "３ｍ": "約3メートルの津波が予測されます。",
+                "１ｍ": "約1メートルの津波が予測されます。",
+                "０．２ｍ未満": "0.2メートル未満の津波が予測されます。"
+            }
+        };
+        return enumMap[enumType] && enumMap[enumType][value] ? enumMap[enumType][value] : "情報がありません";
     };
-  
+
     let result = "";
-    
+
     // IDとコード
     result += `津波予報ID: ${jsonData._id}\n`;
     result += `情報コード: ${jsonData.code}\n`;
-    
+
     // 受信日時
     result += `受信日時: ${jsonData.time}\n`;
-    
+
     // 予報のキャンセル状態
     result += `津波予報が解除されましたか: ${jsonData.cancelled ? "はい" : "いいえ"}\n`;
-    
+
     // 発表元の情報
     result += `発表元: ${jsonData.issue.source}\n`;
     result += `発表日時: ${jsonData.issue.time}\n`;
     result += `発表種類: ${jsonData.issue.type}\n`;
-    
+
     // 予報の詳細情報
     if (jsonData.areas && jsonData.areas.length > 0) {
-      jsonData.areas.forEach(area => {
-        result += `\n津波予報区名: ${area.name}\n`;
-        result += `津波予報の種類: ${getEnumDescription("grade", area.grade)}\n`;
-        result += `直ちに津波が来襲すると予測されていますか: ${area.immediate ? "はい" : "いいえ"}\n`;
-  
-        // 第1波の到達予想時刻
-        if (area.firstHeight) {
-          result += `第1波の到達予想時刻: ${area.firstHeight.arrivalTime}\n`;
-          result += `到達予測状態: ${getEnumDescription("condition", area.firstHeight.condition)}\n`;
-        }
-  
-        // 最大津波高さ
-        if (area.maxHeight) {
-          result += `最大津波高さ: ${getEnumDescription("maxHeight", area.maxHeight.description)}\n`;
-          result += `予想高さ (数値表現): ${area.maxHeight.value} メートル\n`;
-        }
-      });
+        jsonData.areas.forEach(area => {
+            result += `\n津波予報区名: ${area.name}\n`;
+            result += `津波予報の種類: ${getEnumDescription("grade", area.grade)}\n`;
+            result += `直ちに津波が来襲すると予測されていますか: ${area.immediate ? "はい" : "いいえ"}\n`;
+
+            // 第1波の到達予想時刻
+            if (area.firstHeight) {
+                result += `第1波の到達予想時刻: ${area.firstHeight.arrivalTime}\n`;
+                result += `到達予測状態: ${getEnumDescription("condition", area.firstHeight.condition)}\n`;
+            }
+
+            // 最大津波高さ
+            if (area.maxHeight) {
+                result += `最大津波高さ: ${getEnumDescription("maxHeight", area.maxHeight.description)}\n`;
+                result += `予想高さ (数値表現): ${area.maxHeight.value} メートル\n`;
+            }
+        });
     } else {
-      result += "津波予報の詳細情報はありません。\n";
+        result += "津波予報の詳細情報はありません。\n";
     }
-    
+
     return result;
-  }
-  
-  function P2P554Convert(data) {
+}
+
+function P2P554Convert(data) {
     if (!data._id || !data.code || !data.time || !data.type) {
         return "入力データが不完全です。";
     }
@@ -488,13 +480,13 @@ function P2P552Convert(jsonData) {
 function P2PSorting(Original) {
     try {
         const codeMap = {
-            551:P2P551Convert,
+            551: P2P551Convert,
             552: P2P552Convert,
             554: P2P554Convert,
             555: P2P555Convert,
             556: P2P556Convert,
             561: P2P561Convert,
-            9611:P2P9611Convert
+            9611: P2P9611Convert
         };
 
         return codeMap[Original.code] ? codeMap[Original.code](Original) : Original.code;
@@ -504,21 +496,116 @@ function P2PSorting(Original) {
     }
 }
 
+function wolfxcoverter(data) {
+
+    // "heartbeat" の場合
+    if (data.type === "heartbeat") {
+        return `【システムハートビート】\n` +
+            `ID: ${data.id}\n` +
+            `メッセージ: ${data.message ? data.message : "（なし）"}\n`;
+    }
+
+    // "jma_eew" の場合 (緊急地震速報)
+    if (data.type === "jma_eew") {
+        let message = `【${data.Title}】\n`;
+        message += `発表機関: ${data.Issue?.Source} (${data.Issue?.Status})\n`;
+        message += `発表ID: ${data.EventID} / 発表回数: 第${data.Serial}報\n`;
+        message += `発表時刻: ${data.AnnouncedTime} (JST)\n`;
+        message += `地震発生時刻: ${data.OriginTime} (JST)\n`;
+        message += `\n震源地: ${data.Hypocenter} (緯度: ${data.Latitude}, 経度: ${data.Longitude})\n`;
+        message += `マグニチュード: M${data.Magunitude} 深さ: ${data.Depth}km\n`;
+        message += `最大震度: ${data.MaxIntensity}\n`;
+
+        if (data.Accuracy) {
+            message += `\n【精度情報】\n`;
+            message += `震源位置: ${data.Accuracy?.Epicenter} / 深さ: ${data.Accuracy?.Depth} / マグニチュード: ${data.Accuracy?.Magnitude}\n`;
+        }
+
+        if (data.MaxIntChange?.String) {
+            message += `最大震度の変更: ${data.MaxIntChange.String} (理由: ${data.MaxIntChange.Reason})\n`;
+        }
+
+        if (data.WarnArea && data.WarnArea.length > 0) {
+            message += `\n【警報情報】\n`;
+            message += `警報対象地域: ${data.WarnArea.map(area => area.Chiiki).join("、")}\n`;
+        } else {
+            message += `\n【警報情報】\n警報対象地域: なし\n`;
+        }
+
+        message += `\n【その他情報】\n`;
+        message += `海域の地震: ${data.isSea ? "はい" : "いいえ"}\n`;
+        message += `訓練報: ${data.isTraining ? "はい" : "いいえ"}\n`;
+        message += `推定震源 (PLUM/レベル/IPF法): ${data.isAssumption ? "はい" : "いいえ"}\n`;
+        message += `警報発表: ${data.isWarn ? "はい" : "いいえ"}\n`;
+        message += `最終報: ${data.isFinal ? "はい" : "いいえ"}\n`;
+        message += `キャンセル報: ${data.isCancel ? "はい" : "いいえ"}\n`;
+
+        if (data.OriginalText) {
+            message += `\n【原文】\n${data.OriginalText}\n`;
+        }
+
+        return message;
+    }
+
+    // 未知のデータタイプの場合
+    return `【未対応のデータ】\nタイプ: ${data.type}\n内容:\n${JSON.stringify(data, null, 2)}`;
+}
+
+
+//接続部
 const P2P_websoket_url = 'wss://api.p2pquake.net/v2/ws';
 let P2P_websoket;
 let isWebSocketConnected = false;
 let reconnectAttempts = 0;
 const reconnectInterval = 1000; // 再接続のインターバル（1秒）
 
+const wolfx_websoket_url = "wss://ws-api.wolfx.jp/jma_eew";
+let wolfx_websoket = new WebSocket(wolfx_websoket_url);
+
+wolfx_websoket.onopen = function () {
+    console.log("WolfX WebSocket connected.");
+}
+
+wolfx_websoket.onmessage = function (event) {
+    try {
+        let data;
+        data = JSON.parse(event.data);
+
+        // データ処理
+        all_data_list.push(data);
+        log_list.push(`WolfX data received: ${JSON.stringify(data)}`);
+
+        // currentIndex の更新と表示
+        currentIndex = all_data_list.length;
+
+        // 無駄な再描画を防ぐための条件（例: 現在のインデックスが変わった時だけ表示）
+        if (currentIndex > 0) {
+            displayMaintextareaData(currentIndex);  // P2PとWolfX両方を表示
+        }
+
+    } catch (error) {
+        console.error("Error processing WolfX WebSocket data:", error);
+    }
+};
+
+wolfx_websoket.onclose = function () {
+    console.log("WolfX WebSocket closed.");
+};
+
+wolfx_websoket.onerror = function (error) {
+    console.error("WolfX WebSocket error:", error);
+};
+
+
+
 // WebSocket接続時の処理
 function createWebSocketConnection() {
     P2P_websoket = new WebSocket(P2P_websoket_url);
-    
+
     P2P_websoket.onopen = function () {
         console.log("WebSocket connected.");
         isWebSocketConnected = true;
         reconnectAttempts = 0;
-        document.getElementById("now_time").style.color = "orange";
     };
 
     P2P_websoket.onmessage = function (event) {
@@ -529,7 +616,6 @@ function createWebSocketConnection() {
             Savejson(data);
             all_data_list.push(data);
             log_list.push(`P2P data received: ${JSON.stringify(data)} `);
-            document.getElementById("now_time").style.color = "orange";
             isWebSocketConnected = true;
             currentIndex = all_data_list.length;
             displayMaintextareaData(currentIndex);
@@ -562,6 +648,7 @@ function attemptReconnect() {
     }
 }
 
+
 // 接続状況を表示
 function changetime() {
     const nowTimeElem = document.getElementById("now_time");
@@ -587,11 +674,14 @@ createWebSocketConnection();
 
 setInterval(changetime, 1); // 1秒ごとに時刻と接続状況を確認
 
+let menuitemcount = 0;
+
 function addMenuItem(text) {
+    menuitemcount++;  // Correct increment of menuitemcount
     const infomenu = document.getElementById("infomenu");
-    const newItem = document.createElement("p"); // 新しい<p>を作成
-    newItem.textContent = text; // テキストを設定
-    infomenu.appendChild(newItem); // 親要素に追加
+    const newItem = document.createElement("p");  // Create a new <p> element
+    newItem.textContent = `${menuitemcount}件目: ${text}`;  // Set the text of the new item
+    infomenu.appendChild(newItem);  // Append the <p> element to the parent
 }
 
 // displayMaintextareaData関数：インデックスに基づいてテキストエリアにデータを表示
@@ -614,11 +704,19 @@ function displayMaintextareaData(index) {
         const validIndex = Math.min(Math.max(index, 1), all_data_list.length);
         const selectedData = all_data_list[validIndex - 1]; // 1ベース
 
+        // P2PまたはWolfXデータを処理するためにP2PSortingとdisplayを適切に分ける
+        let displayData;
+        if (selectedData.code) {  // P2Pデータかどうかの確認
+            displayData = P2PSorting(selectedData);
+        } else {
+            displayData = wolfxcoverter(selectedData);  // WolfXデータはそのまま表示
+        }
+
         // テキストエリアにデータを表示
-        mainTextarea.value = `${validIndex}/${all_data_list.length}\n${P2PSorting(selectedData)}`;
+        mainTextarea.value = `${validIndex}/${all_data_list.length}\n${displayData}`;
 
         // メニュー項目を追加
-        addMenuItem(`${selectedData.code}情報-${selectedData.time}`);
+        addMenuItem(`${selectedData.code || 'WolfX'}情報`);
 
         // 現在のインデックスを更新し、スライダーを同期
         currentIndex = validIndex;

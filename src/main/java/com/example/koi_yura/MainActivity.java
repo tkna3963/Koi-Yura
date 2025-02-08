@@ -36,22 +36,15 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // フォアグラウンドサービスを開始
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(new Intent(this, WebViewForegroundService.class));
         }
 
-        // WebView の初期化
         initializeWebView();
-
-        // TTS の初期化
         textToSpeech = new TextToSpeech(this, this);
-
-        // LocationManager の初期化と権限チェック
         initializeLocationManager();
     }
 
-    // WebView の初期化メソッド
     private void initializeWebView() {
         webView = findViewById(R.id.mainwebview);
 
@@ -64,15 +57,14 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         webSettings.setAllowContentAccess(true);
 
         webView.setWebViewClient(new WebViewClient());
-
-        // JavaScript インターフェースを追加
         webView.addJavascriptInterface(new WebAppInterface(this), "Android");
-
-        // ローカル HTML ファイルを読み込む
         webView.loadUrl("file:///android_res/raw/index.html");
+        webView.canGoBack();
+        webView.goBack();
+        webView.canGoForward();
+        webView.goForward();
     }
 
-    // LocationManager の初期化と権限チェック
     private void initializeLocationManager() {
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         if (!hasLocationPermission()) {
@@ -82,24 +74,20 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         }
     }
 
-    // 権限が付与されているか確認
     private boolean hasLocationPermission() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
-    // 権限をリクエスト
     private void requestLocationPermission() {
         ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
     }
 
-    // 位置情報の更新を開始
     private void startLocationUpdates() {
         if (hasLocationPermission()) {
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000, 10, this);
         }
     }
 
-    // TextToSpeech の初期化完了時のコールバック
     @Override
     public void onInit(int status) {
         if (status == TextToSpeech.SUCCESS) {
@@ -112,14 +100,12 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         }
     }
 
-    // 位置情報が更新された時の処理
     @Override
     public void onLocationChanged(Location location) {
         latitude = location.getLatitude();
         longitude = location.getLongitude();
     }
 
-    // ユーザーの権限リクエストに対する応答
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -132,7 +118,6 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         }
     }
 
-    // JavaScript インターフェース
     public class WebAppInterface {
         Context mContext;
 
@@ -155,9 +140,31 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                 return "位置情報が取得できません";
             }
         }
+
+        @JavascriptInterface
+        public void reloadWebView() {
+            runOnUiThread(() -> {
+                if (webView != null) {
+                    webView.reload();
+                    Toast.makeText(mContext, "WebView をリロードしました", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
     }
 
-    // リソース解放処理
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level >= TRIM_MEMORY_RUNNING_CRITICAL) {
+            runOnUiThread(() -> {
+                if (webView != null) {
+                    webView.reload();
+                    Toast.makeText(this, "メモリ不足のためリロードしました", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    }
+
     @Override
     protected void onDestroy() {
         if (textToSpeech != null) {
