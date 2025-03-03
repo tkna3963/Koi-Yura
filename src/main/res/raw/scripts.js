@@ -254,12 +254,12 @@ function P2P555Convert(jsonData) {
     if (!jsonData || jsonData.code !== 555 || !jsonData.areas) {
         return "データが正しくありません。";
     }
-    const countpeer=0;
+    let countpeer = 0;
     jsonData.areas.forEach(area => {
-        countpeer +=area.peer;
+        countpeer += area.peer;
     });
     let report = `受信日時: ${jsonData.time}\n\n`;
-    report += `ピア合計数: ${countpeer}Peers`;
+    report += `ピア合計数: ${countpeer}Peers\n`;
     report += `ピアの地域分布:\n`;
     jsonData.areas.forEach(area => {
         report += `- 地域コード: ${area.id}\n`;
@@ -648,8 +648,7 @@ function attemptReconnect() {
     }
 }
 
-
-// 接続状況を表示
+//main部
 function changetime() {
     const nowTimeElem = document.getElementById("now_time");
     if (nowTimeElem) {
@@ -685,6 +684,9 @@ function addMenuItem(text) {
 }
 
 // displayMaintextareaData関数：インデックスに基づいてテキストエリアにデータを表示
+let skipCount = 0; // スキップ回数のカウント
+let lastImportantData = ""; // 最後に表示した重要なデータ
+
 function displayMaintextareaData(index) {
     try {
         const mainTextarea = document.getElementById("maintextarea");
@@ -700,23 +702,41 @@ function displayMaintextareaData(index) {
             return;
         }
 
-        // インデックスの範囲を調整
         const validIndex = Math.min(Math.max(index, 1), all_data_list.length);
-        const selectedData = all_data_list[validIndex - 1]; // 1ベース
+        const currentData = all_data_list[validIndex - 1]; // 1ベース
 
-        // P2PまたはWolfXデータを処理するためにP2PSortingとdisplayを適切に分ける
-        let displayData;
-        if (selectedData.code) {  // P2Pデータかどうかの確認
-            displayData = P2PSorting(selectedData);
-        } else {
-            displayData = wolfxcoverter(selectedData);  // WolfXデータはそのまま表示
+        // 重要な情報 (551, 552, 554, 556, jma_eew) を受信した場合はスキップ
+        if (
+            ["551", "552", "554", "556"].includes(currentData.code) ||
+            currentData.type === "jma_eew"
+        ) {
+            if (skipCount === 0) {
+                // 最初に重要なデータを受信した場合に表示して固定
+                lastImportantData = `${validIndex}/${all_data_list.length}\n${P2PSorting(currentData) || wolfxcoverter(currentData)}`;
+                console.log(`重要情報 (${currentData.code || currentData.type}) 受信。次の20回は表示を固定。`);
+            }
+            skipCount = 20; // 20回スキップする
+            return; // 重要情報の表示をスキップし、次のデータを処理せずに終了
         }
 
-        // テキストエリアにデータを表示
+        // スキップ回数が残っている場合はスキップ
+        if (skipCount > 0) {
+            skipCount--;
+            return; // スキップ中は表示処理を行わない
+        }
+
+        let displayData;
+        if (currentData.code) {
+            displayData = P2PSorting(currentData); // P2Pデータ
+        } else {
+            displayData = wolfxcoverter(currentData);  // WolfXデータ
+        }
+
+        // 重要情報でない場合のみテキストエリアに表示
         mainTextarea.value = `${validIndex}/${all_data_list.length}\n${displayData}`;
 
         // メニュー項目を追加
-        addMenuItem(`${selectedData.code || 'WolfX'}情報`);
+        addMenuItem(`${currentData.code || 'WolfX'}情報`);
 
         // 現在のインデックスを更新し、スライダーを同期
         currentIndex = validIndex;
@@ -725,8 +745,14 @@ function displayMaintextareaData(index) {
         }
     } catch (error) {
         console.error("displayMaintextareaDataエラー:", error);
+    } finally {
+        // 重要な情報を表示している間、テキストエリアの表示を固定
+        if (skipCount > 0 && mainTextarea) {
+            mainTextarea.value = lastImportantData;
+        }
     }
 }
+
 
 document.addEventListener("DOMContentLoaded", () => {
     const pagebar = document.getElementById("pagebar");

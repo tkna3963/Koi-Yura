@@ -38,6 +38,7 @@ public class WebViewForegroundService extends Service {
         webView.setWebViewClient(new WebViewClient());
         webView.loadUrl("file:///android_res/raw/index.html"); // 例としてウェブサイトを読み込む
 
+
         // 通知を作成してサービスをフォアグラウンドにする
         Notification notification = new Notification.Builder(this, CHANNEL_ID)
                 .setContentTitle("WebView Service Running")
