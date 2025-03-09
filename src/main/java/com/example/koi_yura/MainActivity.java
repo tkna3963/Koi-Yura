@@ -1,8 +1,10 @@
 package com.example.koi_yura;
 
 import android.Manifest;
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
@@ -19,8 +21,11 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
 
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity implements TextToSpeech.OnInitListener, LocationListener {
     private WebView webView;
@@ -30,6 +35,31 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
     private double longitude = 0.0;
 
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
+    private boolean isWorkScheduled = false;
+
+    // フォアグラウンドで動作しているかをチェック
+    private boolean isAppInForeground() {
+        ActivityManager activityManager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        if (activityManager != null) {
+            for (ActivityManager.RunningAppProcessInfo appProcess : activityManager.getRunningAppProcesses()) {
+                if (appProcess.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
+                    return appProcess.processName.equals(getPackageName());
+                }
+            }
+        }
+        return false;
+    }
+
+    // サービスが実行中かどうかを確認
+    private boolean isServiceRunning(Class<?> serviceClass) {
+        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (serviceClass.getName().equals(service.service.getClassName())) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,6 +75,48 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         initializeLocationManager();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        // アプリがフォアグラウンドに来たとき
+        if (isAppInForeground() && !isWorkScheduled) {
+            // WebViewがすでに開かれているなら、バックグラウンドワーカーを起動しない
+            if (!isServiceRunning(WebViewForegroundService.class)) {
+                scheduleBackgroundWorker();
+            }
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        // アプリがバックグラウンドに行ったとき
+        if (!isAppInForeground()) {
+            cancelBackgroundWorker();
+        }
+    }
+
+    private void scheduleBackgroundWorker() {
+        // PeriodicWorkRequestで定期的にバックグラウンドワーカーを実行
+        PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(
+                BackgroundWorker.class, 15, TimeUnit.MINUTES // 15分ごとに実行
+        )
+                .addTag("BackgroundWorker")  // タグを付けて識別
+                .build();
+
+        // WorkManagerでタスクをスケジュール
+        WorkManager.getInstance(this).enqueue(workRequest);
+        isWorkScheduled = true; // 作業がスケジュールされたことを記録
+    }
+
+    private void cancelBackgroundWorker() {
+        // WorkManagerで登録されているバックグラウンドワークをキャンセル
+        WorkManager.getInstance(this).cancelAllWorkByTag("BackgroundWorker");
+        isWorkScheduled = false; // 作業がキャンセルされたことを記録
+    }
+
     private void initializeWebView() {
         webView = findViewById(R.id.mainwebview);
 
@@ -57,12 +129,8 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         webSettings.setAllowContentAccess(true);
 
         webView.setWebViewClient(new WebViewClient());
-        webView.addJavascriptInterface(new WebAppInterface(this), "Android");
+        webView.addJavascriptInterface(new WebAppInterface(this, webView), "Android");
         webView.loadUrl("file:///android_res/raw/index.html");
-        webView.canGoBack();
-        webView.goBack();
-        webView.canGoForward();
-        webView.goForward();
     }
 
     private void initializeLocationManager() {
@@ -118,11 +186,14 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         }
     }
 
+    // WebAppInterface クラス
     public class WebAppInterface {
         Context mContext;
+        WebView webView;
 
-        WebAppInterface(Context context) {
+        WebAppInterface(Context context, WebView webView) {
             mContext = context;
+            this.webView = webView;
         }
 
         @JavascriptInterface
@@ -167,6 +238,12 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
 
     @Override
     protected void onDestroy() {
+        super.onDestroy();
+        // WebViewの状態をfalseにする
+        SharedPreferences preferences = getSharedPreferences("WebViewState", MODE_PRIVATE);
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putBoolean("isWebViewActive", false);
+        editor.apply();
         if (textToSpeech != null) {
             textToSpeech.stop();
             textToSpeech.shutdown();

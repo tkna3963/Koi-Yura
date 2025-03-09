@@ -19,7 +19,7 @@
     <img src="baclgroundimg.jpg" id="back">
     <img src="hyoujyou_bishou_koisi.png" id="koisi" onclick="koisi_toutchdo()">
     <audio id="koisi_voice" src="koisi_toutch.wav"></audio>
-    <audio id="Event_music" src="newyear.wav"></audio>
+    <audio id="music" src="hartmannsyoukaigirllampcat.mp3" loop"></audio>
 
     <!-- メニュー -->
     <div id="menu">
@@ -61,6 +61,13 @@
             koisi_facechange("hyoujyou_warau_koisi.png");
             Koisi_voice("koisi_toutch.wav");
         }
+        //musicを再生
+        function music_play() {
+            const music = document.getElementById("music");
+            music.play();
+        }
+        music_play();
+
     </script>
 
 </body>

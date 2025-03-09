@@ -7,20 +7,44 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Build;
 import android.os.IBinder;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 import androidx.annotation.RequiresApi;
+import androidx.core.app.NotificationCompat;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class WebViewForegroundService extends Service {
 
     private WebView webView;
     private static final String CHANNEL_ID = "WebViewForegroundServiceChannel";
 
+    // WebAppInterfaceクラスを内部クラスとして定義
+    public class WebAppInterface {
+        private Service mContext;
+
+        WebAppInterface(Service c) {
+            mContext = c;
+        }
+
+        @JavascriptInterface
+        public void showToast(String toast) {
+            // JavaScriptから呼び出せるメソッドをここに追加
+        }
+    }
+
     @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
     public void onCreate() {
         super.onCreate();
+
+        // WebViewの初期化
+        webView = new WebView(this);
 
         // Notification Channelの作成 (Android 8.0以上用)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -34,15 +58,26 @@ public class WebViewForegroundService extends Service {
         }
 
         // WebViewの設定
-        webView = new WebView(this);
-        webView.setWebViewClient(new WebViewClient());
-        webView.loadUrl("file:///android_res/raw/index.html"); // 例としてウェブサイトを読み込む
+        WebSettings webSettings = webView.getSettings();
+        webSettings.setJavaScriptEnabled(true);
+        webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        webSettings.setMediaPlaybackRequiresUserGesture(false);
+        webSettings.setDomStorageEnabled(true);
+        webSettings.setAllowFileAccess(true);
+        webSettings.setAllowContentAccess(true);
 
+        webView.setWebViewClient(new WebViewClient());
+        webView.addJavascriptInterface(new WebAppInterface(this), "Android");
+        webView.loadUrl("file:///android_res/raw/index.html");
+
+        // 現在時刻を取得してフォーマット
+        String currentTime = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
 
         // 通知を作成してサービスをフォアグラウンドにする
-        Notification notification = new Notification.Builder(this, CHANNEL_ID)
+        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("WebView Service Running")
-                .setContentText("This service is running in the foreground.")
+                .setContentText("起動時刻: " + currentTime)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .build();
 
         startForeground(1, notification);
