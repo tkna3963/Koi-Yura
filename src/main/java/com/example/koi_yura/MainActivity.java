@@ -12,20 +12,19 @@ import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
-import android.webkit.JavascriptInterface;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
+import android.util.Log;
 import android.widget.Toast;
-
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
-
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import android.webkit.WebView;
+import android.webkit.WebSettings;
+import android.webkit.WebViewClient;
+import android.webkit.JavascriptInterface;
 
 public class MainActivity extends AppCompatActivity implements TextToSpeech.OnInitListener, LocationListener {
     private WebView webView;
@@ -36,6 +35,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
 
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
     private boolean isWorkScheduled = false;
+    private boolean isWebViewActive = false; // WebViewの状態を管理する変数
 
     // フォアグラウンドで動作しているかをチェック
     private boolean isAppInForeground() {
@@ -66,13 +66,22 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // WebViewがすでにアクティブかどうかをSharedPreferencesで確認
+        SharedPreferences preferences = getSharedPreferences("WebViewState", MODE_PRIVATE);
+        isWebViewActive = preferences.getBoolean("isWebViewActive", false);
+
+        // フォアグラウンドサービスの開始
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(new Intent(this, WebViewForegroundService.class));
         }
 
-        initializeWebView();
         textToSpeech = new TextToSpeech(this, this);
         initializeLocationManager();
+
+        // WebViewがアクティブでない場合に初期化
+        if (!isWebViewActive) {
+            initializeWebView();
+        }
     }
 
     @Override
@@ -80,9 +89,21 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         super.onResume();
 
         // アプリがフォアグラウンドに来たとき
-        if (isAppInForeground() && !isWorkScheduled) {
-            // WebViewがすでに開かれているなら、バックグラウンドワーカーを起動しない
-            if (!isServiceRunning(WebViewForegroundService.class)) {
+        if (isAppInForeground()) {
+            // WebViewがまだアクティブでないなら、WebViewを開く
+            if (!isWebViewActive) {
+                // WebViewの状態をアクティブに設定
+                isWebViewActive = true;
+                SharedPreferences preferences = getSharedPreferences("WebViewState", MODE_PRIVATE);
+                SharedPreferences.Editor editor = preferences.edit();
+                editor.putBoolean("isWebViewActive", true);
+                editor.apply();
+
+                initializeWebView(); // WebViewの再初期化
+            }
+
+            // バックグラウンドワーカーのスケジュール（アプリがフォアグラウンドに戻った場合）
+            if (!isWorkScheduled) {
                 scheduleBackgroundWorker();
             }
         }
@@ -93,8 +114,26 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         super.onPause();
 
         // アプリがバックグラウンドに行ったとき
-        if (!isAppInForeground()) {
-            cancelBackgroundWorker();
+        if (isAppInForeground()) {
+            cancelBackgroundWorker(); // バックグラウンドに行くときに作業をキャンセル
+        }
+
+        // WebViewを一時的に無効化
+        if (isWebViewActive) {
+            isWebViewActive = false;
+            SharedPreferences preferences = getSharedPreferences("WebViewState", MODE_PRIVATE);
+            SharedPreferences.Editor editor = preferences.edit();
+            editor.putBoolean("isWebViewActive", false);
+            editor.apply();
+
+            // WebViewをリセット
+            if (webView != null) {
+                webView.loadUrl("about:blank");
+                webView.clearCache(true);
+                webView.clearHistory();
+                webView.destroy(); // WebViewを完全に解放
+                webView = null;
+            }
         }
     }
 
@@ -118,27 +157,42 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
     }
 
     private void initializeWebView() {
-        webView = findViewById(R.id.mainwebview);
+        // WebViewがまだ開かれていない場合のみ初期化
+        if (!isWebViewActive) {
+            webView = findViewById(R.id.mainwebview);
 
-        WebSettings webSettings = webView.getSettings();
-        webSettings.setJavaScriptEnabled(true);
-        webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        webSettings.setMediaPlaybackRequiresUserGesture(false);
-        webSettings.setDomStorageEnabled(true);
-        webSettings.setAllowFileAccess(true);
-        webSettings.setAllowContentAccess(true);
+            WebSettings webSettings = webView.getSettings();
+            webSettings.setJavaScriptEnabled(true);
+            webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+            webSettings.setMediaPlaybackRequiresUserGesture(false);
+            webSettings.setDomStorageEnabled(true);
+            webSettings.setAllowFileAccess(true);
+            webSettings.setAllowContentAccess(true);
 
-        webView.setWebViewClient(new WebViewClient());
-        webView.addJavascriptInterface(new WebAppInterface(this, webView), "Android");
-        webView.loadUrl("file:///android_res/raw/index.html");
+            webView.setWebViewClient(new WebViewClient());
+            webView.addJavascriptInterface(new WebAppInterface(this, webView), "Android");
+            webView.loadUrl("file:///android_res/raw/index.html");
+
+            // WebViewの状態をアクティブに設定
+            isWebViewActive = true;
+            SharedPreferences preferences = getSharedPreferences("WebViewState", MODE_PRIVATE);
+            SharedPreferences.Editor editor = preferences.edit();
+            editor.putBoolean("isWebViewActive", true);
+            editor.apply();
+        }
     }
 
     private void initializeLocationManager() {
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        if (!hasLocationPermission()) {
-            requestLocationPermission();
-        } else {
+        if (hasLocationPermission()) {
             startLocationUpdates();
+        } else {
+            // すでに位置情報の権限がない場合のみ、リクエストを呼び出す
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
+                // ユーザーに権限リクエストの理由を説明する処理（必要に応じて追加）
+            } else {
+                requestLocationPermission();
+            }
         }
     }
 
@@ -165,13 +219,17 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
             }
         } else {
             Toast.makeText(this, "TTS の初期化に失敗しました", Toast.LENGTH_SHORT).show();
+            // 詳細なログを追加
+            Log.e("TTS", "TextToSpeechの初期化に失敗しました。ステータス: " + status);
         }
     }
 
     @Override
     public void onLocationChanged(Location location) {
-        latitude = location.getLatitude();
-        longitude = location.getLongitude();
+        if (location != null) {
+            latitude = location.getLatitude();
+            longitude = location.getLongitude();
+        }
     }
 
     @Override
@@ -239,19 +297,11 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // WebViewの状態をfalseにする
-        SharedPreferences preferences = getSharedPreferences("WebViewState", MODE_PRIVATE);
-        SharedPreferences.Editor editor = preferences.edit();
-        editor.putBoolean("isWebViewActive", false);
-        editor.apply();
-        if (textToSpeech != null) {
-            textToSpeech.stop();
-            textToSpeech.shutdown();
-        }
+
+        // WebViewを完全に解放
         if (webView != null) {
-            webView.clearCache(true);
-            webView.clearHistory();
+            webView.destroy();
+            webView = null;
         }
-        super.onDestroy();
     }
 }

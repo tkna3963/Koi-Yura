@@ -23,9 +23,10 @@ public class WebViewForegroundService extends Service {
 
     private WebView webView;
     private static final String CHANNEL_ID = "WebViewForegroundServiceChannel";
+    private static boolean isWebViewActive = false; // WebViewの状態を管理する静的フラグ
 
     // WebAppInterfaceクラスを内部クラスとして定義
-    public class WebAppInterface {
+    public static class WebAppInterface {
         private Service mContext;
 
         WebAppInterface(Service c) {
@@ -42,6 +43,11 @@ public class WebViewForegroundService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+
+        if (isWebViewActive) {
+            // すでにWebViewが起動している場合は処理しない
+            return;
+        }
 
         // WebViewの初期化
         webView = new WebView(this);
@@ -81,6 +87,9 @@ public class WebViewForegroundService extends Service {
                 .build();
 
         startForeground(1, notification);
+
+        // WebViewが起動したことを記録
+        isWebViewActive = true;
     }
 
     @Override
@@ -96,6 +105,7 @@ public class WebViewForegroundService extends Service {
         if (webView != null) {
             webView.destroy();
         }
+        // サービス終了時にWebViewを非アクティブにする
+        isWebViewActive = false;
     }
 }
-

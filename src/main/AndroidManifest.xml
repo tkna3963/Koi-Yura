@@ -62,12 +62,6 @@
             android:name=".BackgroundWorker"
             android:enabled="true"
             android:exported="false" />
-
-        <!-- JobScheduler や WorkManager を使う場合の設定 -->
-        <service
-            android:name=".BackgroundWorker"
-            android:enabled="true"
-            android:exported="false" />
     </application>
 
 </manifest>
