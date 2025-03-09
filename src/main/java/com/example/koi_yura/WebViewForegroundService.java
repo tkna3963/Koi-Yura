@@ -98,3 +98,4 @@ public class WebViewForegroundService extends Service {
         }
     }
 }
+
