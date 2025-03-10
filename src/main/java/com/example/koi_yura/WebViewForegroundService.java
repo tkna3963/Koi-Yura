@@ -66,8 +66,8 @@ public class WebViewForegroundService extends Service {
 
         // 通知を作成してサービスをフォアグラウンドにする
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("WebView Service Running")
-                .setContentText(currentTime)
+                .setContentTitle("バックグラウンド実行を開始したよ!!")
+                .setContentText(currentTime+"に開始したよ")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .build();
 

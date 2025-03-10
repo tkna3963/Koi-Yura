@@ -145,7 +145,7 @@ function koisiarrow_box_change(text) {
 
 
 function P2P551Convert(data) {
-
+    Koisi_voice("quick.wav")
     if (!data || typeof data !== 'object') return '無効なデータです。';
     const issueTime = data.issue?.time || '不明';
     const issueTypeEnum = {
@@ -251,6 +251,7 @@ function P2P561Convert(jsonData) {
 }
 
 function P2P555Convert(jsonData) {
+    Koisi_voice("participant_information.wav");
     if (!jsonData || jsonData.code !== 555 || !jsonData.areas) {
         return "データが正しくありません。";
     }
@@ -265,7 +266,6 @@ function P2P555Convert(jsonData) {
         report += `- 地域コード: ${area.id}\n`;
         report += `  ピア数: ${area.peer}Peers\n`;
     });
-
     return report;
 }
 
@@ -273,19 +273,14 @@ function P2P556Convert(json) {
     if (!json || json.code !== 556) {
         return "無効な緊急地震速報のデータです。";
     }
-
     let message = `【緊急地震速報】\n`;
-
     if (json.test) {
         message += `※これはテストです※\n`;
     }
-
     message += `受信時刻: ${json.time}\n`;
-
     if (json.cancelled) {
         return message + `この緊急地震速報は取り消されました。`;
     }
-
     if (json.earthquake) {
         const eq = json.earthquake;
         message += `地震発生時刻: ${eq.originTime}\n`;
@@ -348,8 +343,8 @@ function convertConfidenceToLabel(confidence) {
 
 
 function P2P9611Convert(data) {
+    Koisi_voice("reportsofshaking.wav")
     let output = "";
-
     // 基本情報の出力
     output += `評価ID: ${data._id}\n`;
     output += `情報コード: ${data.code}\n`;
@@ -358,7 +353,6 @@ function P2P9611Convert(data) {
     output += `信頼度: ${convertConfidenceToLabel(data.confidence)}\n`;
     output += `開始日時: ${data.started_at}\n`;
     output += `更新日時: ${data.updated_at}\n`;
-
     // 地域ごとの信頼度情報の処理
     if (data.area_confidences) {
         output += `地域ごとの信頼度情報:\n`;
@@ -370,7 +364,6 @@ function P2P9611Convert(data) {
             output += `表示: ${area.display}\n`;
         }
     }
-
     return output;
 }
 
@@ -402,37 +395,29 @@ function P2P552Convert(jsonData) {
         };
         return enumMap[enumType] && enumMap[enumType][value] ? enumMap[enumType][value] : "情報がありません";
     };
-
     let result = "";
-
     // IDとコード
     result += `津波予報ID: ${jsonData._id}\n`;
     result += `情報コード: ${jsonData.code}\n`;
-
     // 受信日時
     result += `受信日時: ${jsonData.time}\n`;
-
     // 予報のキャンセル状態
     result += `津波予報が解除されましたか: ${jsonData.cancelled ? "はい" : "いいえ"}\n`;
-
     // 発表元の情報
     result += `発表元: ${jsonData.issue.source}\n`;
     result += `発表日時: ${jsonData.issue.time}\n`;
     result += `発表種類: ${jsonData.issue.type}\n`;
-
     // 予報の詳細情報
     if (jsonData.areas && jsonData.areas.length > 0) {
         jsonData.areas.forEach(area => {
             result += `\n津波予報区名: ${area.name}\n`;
             result += `津波予報の種類: ${getEnumDescription("grade", area.grade)}\n`;
             result += `直ちに津波が来襲すると予測されていますか: ${area.immediate ? "はい" : "いいえ"}\n`;
-
             // 第1波の到達予想時刻
             if (area.firstHeight) {
                 result += `第1波の到達予想時刻: ${area.firstHeight.arrivalTime}\n`;
                 result += `到達予測状態: ${getEnumDescription("condition", area.firstHeight.condition)}\n`;
             }
-
             // 最大津波高さ
             if (area.maxHeight) {
                 result += `最大津波高さ: ${getEnumDescription("maxHeight", area.maxHeight.description)}\n`;
@@ -442,7 +427,6 @@ function P2P552Convert(jsonData) {
     } else {
         result += "津波予報の詳細情報はありません。\n";
     }
-
     return result;
 }
 
@@ -450,10 +434,8 @@ function P2P554Convert(data) {
     if (!data._id || !data.code || !data.time || !data.type) {
         return "入力データが不完全です。";
     }
-
     // 時刻の整形
     let formattedTime = new Date(data.time).toLocaleString('ja-JP', { hour12: false });
-
     // Enumの処理
     let typeDescription = '';
     switch (data.type) {
@@ -467,7 +449,6 @@ function P2P554Convert(data) {
             typeDescription = '未知の検出タイプです。';
             break;
     }
-
     // 結果を文章で返す
     return `
     情報ID: ${data._id}
@@ -497,16 +478,16 @@ function P2PSorting(Original) {
 }
 
 function wolfxcoverter(data) {
-
     // "heartbeat" の場合
+    Koisi_voice("outsideconnection.wav")
     if (data.type === "heartbeat") {
         return `【システムハートビート】\n` +
             `ID: ${data.id}\n` +
             `メッセージ: ${data.message ? data.message : "（なし）"}\n`;
     }
-
     // "jma_eew" の場合 (緊急地震速報)
     if (data.type === "jma_eew") {
+        Koisi_voice("eew.wav")
         let message = `【${data.Title}】\n`;
         message += `発表機関: ${data.Issue?.Source} (${data.Issue?.Status})\n`;
         message += `発表ID: ${data.EventID} / 発表回数: 第${data.Serial}報\n`;
@@ -551,66 +532,82 @@ function wolfxcoverter(data) {
     return `【未対応のデータ】\nタイプ: ${data.type}\n内容:\n${JSON.stringify(data, null, 2)}`;
 }
 
-
-//接続部
 const P2P_websoket_url = 'wss://api.p2pquake.net/v2/ws';
-let P2P_websoket;
+let p2pQuakeWebSocket;
 let isWebSocketConnected = false;
 let reconnectAttempts = 0;
 const reconnectInterval = 1000; // 再接続のインターバル（1秒）
 
 const wolfx_websoket_url = "wss://ws-api.wolfx.jp/jma_eew";
-let wolfx_websoket = new WebSocket(wolfx_websoket_url);
+let wolfx_websoket;
+let isWolfxWebSocketConnected = false;
+let wolfxReconnectAttempts = 0;
 
-wolfx_websoket.onopen = function () {
-    console.log("WolfX WebSocket connected.");
+// WolfX WebSocketの接続を作成
+function createWolfxWebSocketConnection() {
+    wolfx_websoket = new WebSocket(wolfx_websoket_url);
+
+    wolfx_websoket.onopen = function () {
+        console.log("WolfX WebSocket connected.");
+        isWolfxWebSocketConnected = true;
+        wolfxReconnectAttempts = 0;
+    };
+
+    wolfx_websoket.onmessage = function (event) {
+        try {
+            let data = JSON.parse(event.data);
+
+            // データ処理
+            all_data_list.push(data);
+            log_list.push(`WolfX data received: ${JSON.stringify(data)}`);
+
+            // currentIndex の更新と表示
+            currentIndex = all_data_list.length;
+
+            if (currentIndex > 0) {
+                displayMaintextareaData(currentIndex);
+            }
+        } catch (error) {
+            console.error("Error processing WolfX WebSocket data:", error);
+        }
+    };
+
+    wolfx_websoket.onerror = function (error) {
+        console.error("WolfX WebSocket error:", error);
+        isWolfxWebSocketConnected = false;
+        attemptWolfxReconnect();
+    };
+
+    wolfx_websoket.onclose = function (event) {
+        console.log("WolfX WebSocket closed with code: " + event.code);
+        isWolfxWebSocketConnected = false;
+        attemptWolfxReconnect();
+    };
 }
 
-wolfx_websoket.onmessage = function (event) {
-    try {
-        let data;
-        data = JSON.parse(event.data);
-
-        // データ処理
-        all_data_list.push(data);
-        log_list.push(`WolfX data received: ${JSON.stringify(data)}`);
-
-        // currentIndex の更新と表示
-        currentIndex = all_data_list.length;
-
-        // 無駄な再描画を防ぐための条件（例: 現在のインデックスが変わった時だけ表示）
-        if (currentIndex > 0) {
-            displayMaintextareaData(currentIndex);  // P2PとWolfX両方を表示
-        }
-
-    } catch (error) {
-        console.error("Error processing WolfX WebSocket data:", error);
+// WolfX WebSocketの再接続処理
+function attemptWolfxReconnect() {
+    if (!isWolfxWebSocketConnected) {
+        wolfxReconnectAttempts++;
+        console.log(`Reconnecting WolfX WebSocket... Attempt ${wolfxReconnectAttempts}`);
+        setTimeout(() => {
+            createWolfxWebSocketConnection();
+        }, reconnectInterval);
     }
-};
+}
 
-wolfx_websoket.onclose = function () {
-    console.log("WolfX WebSocket closed.");
-};
+// P2P WebSocketの接続を作成
+function createP2PWebSocketConnection() {
+    p2pQuakeWebSocket = new WebSocket(P2P_websoket_url);
 
-wolfx_websoket.onerror = function (error) {
-    console.error("WolfX WebSocket error:", error);
-};
-
-
-
-// WebSocket接続時の処理
-function createWebSocketConnection() {
-    P2P_websoket = new WebSocket(P2P_websoket_url);
-
-    P2P_websoket.onopen = function () {
-        console.log("WebSocket connected.");
+    p2pQuakeWebSocket.onopen = function () {
+        console.log("P2P Quake WebSocket connected.");
         isWebSocketConnected = true;
         reconnectAttempts = 0;
     };
 
-    P2P_websoket.onmessage = function (event) {
+    p2pQuakeWebSocket.onmessage = function (event) {
         try {
-            Koisi_voice("newpaper.wav");
             let data = JSON.parse(event.data);
             P2P_list.push(data);
             Savejson(data);
@@ -624,29 +621,33 @@ function createWebSocketConnection() {
         }
     };
 
-    P2P_websoket.onerror = function (error) {
-        console.error("WebSocket error:", error);
+    p2pQuakeWebSocket.onerror = function (error) {
+        console.error("P2P Quake WebSocket error:", error);
         isWebSocketConnected = false;
-        attemptReconnect();
+        attemptP2PReconnect();
     };
 
-    P2P_websoket.onclose = function (event) {
-        console.log("WebSocket closed with code: " + event.code);
+    p2pQuakeWebSocket.onclose = function (event) {
+        console.log("P2P Quake WebSocket closed with code: " + event.code);
         isWebSocketConnected = false;
-        attemptReconnect();
+        attemptP2PReconnect();
     };
 }
 
-// 再接続を試みる関数
-function attemptReconnect() {
+// P2P WebSocketの再接続処理
+function attemptP2PReconnect() {
     if (!isWebSocketConnected) {
         reconnectAttempts++;
-        console.log(`Reconnecting... Attempt ${reconnectAttempts}`);
+        console.log(`Reconnecting P2P Quake WebSocket... Attempt ${reconnectAttempts}`);
         setTimeout(() => {
-            createWebSocketConnection();  // 新しいWebSocketインスタンスを作成
+            createP2PWebSocketConnection();
         }, reconnectInterval);
     }
 }
+
+// 最初のWebSocket接続を開始
+createP2PWebSocketConnection();
+createWolfxWebSocketConnection();
 
 //main部
 function changetime() {
@@ -666,10 +667,6 @@ function changetime() {
         }
     }
 }
-
-
-// 最初にWebSocket接続を開始
-createWebSocketConnection();
 
 setInterval(changetime, 1); // 1秒ごとに時刻と接続状況を確認
 

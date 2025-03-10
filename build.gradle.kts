@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.koi_yura"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.example.koi_yura"
