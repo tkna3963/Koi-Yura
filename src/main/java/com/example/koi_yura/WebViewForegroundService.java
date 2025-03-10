@@ -32,11 +32,6 @@ public class WebViewForegroundService extends Service {
         WebAppInterface(Service c) {
             mContext = c;
         }
-
-        @JavascriptInterface
-        public void showToast(String toast) {
-            // JavaScriptから呼び出せるメソッドをここに追加
-        }
     }
 
     @RequiresApi(api = Build.VERSION_CODES.O)
@@ -52,28 +47,18 @@ public class WebViewForegroundService extends Service {
         // WebViewの初期化
         webView = new WebView(this);
 
-        // Notification Channelの作成 (Android 8.0以上用)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "WebView Service Channel",
-                    NotificationManager.IMPORTANCE_DEFAULT
-            );
-            NotificationManager notificationManager = getSystemService(NotificationManager.class);
-            notificationManager.createNotificationChannel(channel);
-        }
-
         // WebViewの設定
         WebSettings webSettings = webView.getSettings();
-        webSettings.setJavaScriptEnabled(true);
-        webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        webSettings.setMediaPlaybackRequiresUserGesture(false);
-        webSettings.setDomStorageEnabled(true);
-        webSettings.setAllowFileAccess(true);
-        webSettings.setAllowContentAccess(true);
+        webSettings.setJavaScriptEnabled(true); // JavaScriptの有効化
+        webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE); // キャッシュ無効
+        webSettings.setMediaPlaybackRequiresUserGesture(false); // メディア再生のユーザー操作なし
+        webSettings.setDomStorageEnabled(true); // DOMストレージ有効化
+        webSettings.setAllowFileAccess(true); // ファイルアクセス許可
+        webSettings.setAllowContentAccess(true); // コンテンツアクセス許可
 
+        // WebViewClientを設定してリンクの遷移をWebView内で処理
         webView.setWebViewClient(new WebViewClient());
-        webView.addJavascriptInterface(new WebAppInterface(this), "Android");
+        // Webページの読み込み
         webView.loadUrl("file:///android_res/raw/index.html");
 
         // 現在時刻を取得してフォーマット
@@ -82,7 +67,7 @@ public class WebViewForegroundService extends Service {
         // 通知を作成してサービスをフォアグラウンドにする
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("WebView Service Running")
-                .setContentText("起動時刻: " + currentTime)
+                .setContentText(currentTime)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .build();
 

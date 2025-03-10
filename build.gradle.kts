@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.koi_yura"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.koi_yura"
@@ -44,4 +44,5 @@ dependencies {
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
     implementation("androidx.work:work-runtime-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-process:2.6.2")
 }

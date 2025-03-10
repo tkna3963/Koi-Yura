@@ -4,7 +4,6 @@ import android.Manifest;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
@@ -13,214 +12,162 @@ import android.os.Build;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.util.Log;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
 import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
+
+import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.TimeUnit;
-import android.webkit.WebView;
-import android.webkit.WebSettings;
-import android.webkit.WebViewClient;
-import android.webkit.JavascriptInterface;
 
 public class MainActivity extends AppCompatActivity implements TextToSpeech.OnInitListener, LocationListener {
-    private WebView webView;
+
+    private static final String TAG = "MainActivity";
     private TextToSpeech textToSpeech;
     private LocationManager locationManager;
     private double latitude = 0.0;
     private double longitude = 0.0;
-
+    private WebViewManager webViewManager;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
-    private boolean isWorkScheduled = false;
-    private boolean isWebViewActive = false; // WebViewの状態を管理する変数
-
-    // フォアグラウンドで動作しているかをチェック
-    private boolean isAppInForeground() {
-        ActivityManager activityManager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        if (activityManager != null) {
-            for (ActivityManager.RunningAppProcessInfo appProcess : activityManager.getRunningAppProcesses()) {
-                if (appProcess.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
-                    return appProcess.processName.equals(getPackageName());
-                }
-            }
-        }
-        return false;
-    }
-
-    // サービスが実行中かどうかを確認
-    private boolean isServiceRunning(Class<?> serviceClass) {
-        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (serviceClass.getName().equals(service.service.getClassName())) {
-                return true;
-            }
-        }
-        return false;
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        Log.d(TAG, "MainActivity.onCreate()");
 
-        // WebViewがすでにアクティブかどうかをSharedPreferencesで確認
-        SharedPreferences preferences = getSharedPreferences("WebViewState", MODE_PRIVATE);
-        isWebViewActive = preferences.getBoolean("isWebViewActive", false);
+        // WebViewManagerの初期化
+        webViewManager = WebViewManager.getInstance(this);
 
-        // フォアグラウンドサービスの開始
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(new Intent(this, WebViewForegroundService.class));
-        }
-
+        // TTSの初期化
         textToSpeech = new TextToSpeech(this, this);
+
+        // 位置情報の設定
         initializeLocationManager();
 
-        // WebViewがアクティブでない場合に初期化
-        if (!isWebViewActive) {
-            initializeWebView();
+        // サービスの確認と制御 (既にサービスが実行中ならActivityではWebViewを初期化しない)
+        if (!isServiceRunning(WebViewForegroundService.class)) {
+            // WebViewの初期化
+            webViewManager.getWebView(this, new WebAppInterface(this));
+        } else {
+            Log.d(TAG, "フォアグラウンドサービスが実行中のため、ActivityでのWebView初期化をスキップします");
         }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Log.d(TAG, "MainActivity.onStart()");
+
+        // WorkManagerのキャンセル
+        WorkManager.getInstance(this).cancelAllWorkByTag("BackgroundWorker");
+        Log.d(TAG, "バックグラウンドワーカーをキャンセルしました");
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        Log.d(TAG, "MainActivity.onResume()");
 
-        // アプリがフォアグラウンドに来たとき
-        if (isAppInForeground()) {
-            // WebViewがまだアクティブでないなら、WebViewを開く
-            if (!isWebViewActive) {
-                // WebViewの状態をアクティブに設定
-                isWebViewActive = true;
-                SharedPreferences preferences = getSharedPreferences("WebViewState", MODE_PRIVATE);
-                SharedPreferences.Editor editor = preferences.edit();
-                editor.putBoolean("isWebViewActive", true);
-                editor.apply();
+        // フォアグラウンドサービスが実行中なら停止（Activityが前面に出てきたため）
+        if (isServiceRunning(WebViewForegroundService.class)) {
+            stopService(new Intent(this, WebViewForegroundService.class));
+            Log.d(TAG, "フォアグラウンドサービスを停止しました");
+        }
 
-                initializeWebView(); // WebViewの再初期化
-            }
-
-            // バックグラウンドワーカーのスケジュール（アプリがフォアグラウンドに戻った場合）
-            if (!isWorkScheduled) {
-                scheduleBackgroundWorker();
-            }
+        // WebViewが未初期化なら初期化する
+        if (!webViewManager.hasWebViewInstance()) {
+            webViewManager.getWebView(this, new WebAppInterface(this));
+            Log.d(TAG, "WebViewを初期化しました");
         }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        Log.d(TAG, "MainActivity.onPause()");
+    }
 
-        // アプリがバックグラウンドに行ったとき
-        if (isAppInForeground()) {
-            cancelBackgroundWorker(); // バックグラウンドに行くときに作業をキャンセル
-        }
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Log.d(TAG, "MainActivity.onStop()");
 
-        // WebViewを一時的に無効化
-        if (isWebViewActive) {
-            isWebViewActive = false;
-            SharedPreferences preferences = getSharedPreferences("WebViewState", MODE_PRIVATE);
-            SharedPreferences.Editor editor = preferences.edit();
-            editor.putBoolean("isWebViewActive", false);
-            editor.apply();
-
-            // WebViewをリセット
-            if (webView != null) {
-                webView.loadUrl("about:blank");
-                webView.clearCache(true);
-                webView.clearHistory();
-                webView.destroy(); // WebViewを完全に解放
-                webView = null;
+        // アプリがバックグラウンドに移行した場合のみサービスを開始
+        if (!isAppInForeground()) {
+            // サービスが実行中でない場合のみ開始
+            if (!isServiceRunning(WebViewForegroundService.class)) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(new Intent(this, WebViewForegroundService.class));
+                } else {
+                    startService(new Intent(this, WebViewForegroundService.class));
+                }
+                Log.d(TAG, "フォアグラウンドサービスを開始しました");
             }
+
+            // WebViewはServiceで管理するためActivityでは解放する
+            webViewManager.pauseWebView();
         }
     }
 
-    private void scheduleBackgroundWorker() {
-        // PeriodicWorkRequestで定期的にバックグラウンドワーカーを実行
-        PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(
-                BackgroundWorker.class, 15, TimeUnit.MINUTES // 15分ごとに実行
-        )
-                .addTag("BackgroundWorker")  // タグを付けて識別
-                .build();
-
-        // WorkManagerでタスクをスケジュール
-        WorkManager.getInstance(this).enqueue(workRequest);
-        isWorkScheduled = true; // 作業がスケジュールされたことを記録
-    }
-
-    private void cancelBackgroundWorker() {
-        // WorkManagerで登録されているバックグラウンドワークをキャンセル
-        WorkManager.getInstance(this).cancelAllWorkByTag("BackgroundWorker");
-        isWorkScheduled = false; // 作業がキャンセルされたことを記録
-    }
-
-    private void initializeWebView() {
-        // WebViewがまだ開かれていない場合のみ初期化
-        if (!isWebViewActive) {
-            webView = findViewById(R.id.mainwebview);
-
-            WebSettings webSettings = webView.getSettings();
-            webSettings.setJavaScriptEnabled(true);
-            webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-            webSettings.setMediaPlaybackRequiresUserGesture(false);
-            webSettings.setDomStorageEnabled(true);
-            webSettings.setAllowFileAccess(true);
-            webSettings.setAllowContentAccess(true);
-
-            webView.setWebViewClient(new WebViewClient());
-            webView.addJavascriptInterface(new WebAppInterface(this, webView), "Android");
-            webView.loadUrl("file:///android_res/raw/index.html");
-
-            // WebViewの状態をアクティブに設定
-            isWebViewActive = true;
-            SharedPreferences preferences = getSharedPreferences("WebViewState", MODE_PRIVATE);
-            SharedPreferences.Editor editor = preferences.edit();
-            editor.putBoolean("isWebViewActive", true);
-            editor.apply();
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level >= TRIM_MEMORY_RUNNING_CRITICAL) {
+            webViewManager.reloadWebView();
+            Log.d(TAG, "メモリ不足のためWebViewをリロードしました");
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        Log.d(TAG, "MainActivity.onDestroy()");
+
+        // Activityが完全に破棄された場合、かつバックグラウンドサービスが実行されていない場合のみWebViewを破棄
+        if (!isServiceRunning(WebViewForegroundService.class)) {
+            webViewManager.destroyWebView();
+        }
+
+        if (textToSpeech != null) {
+            textToSpeech.stop();
+            textToSpeech.shutdown();
+        }
+
+        super.onDestroy();
+    }
+
+    // 位置情報の設定
     private void initializeLocationManager() {
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         if (hasLocationPermission()) {
             startLocationUpdates();
         } else {
-            // すでに位置情報の権限がない場合のみ、リクエストを呼び出す
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
-                // ユーザーに権限リクエストの理由を説明する処理（必要に応じて追加）
-            } else {
-                requestLocationPermission();
-            }
+            requestLocationPermission();
         }
     }
 
+    // 位置情報の権限チェック
     private boolean hasLocationPermission() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
+    // 位置情報の権限リクエスト
     private void requestLocationPermission() {
         ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
     }
 
+    // 位置情報の更新開始
     private void startLocationUpdates() {
         if (hasLocationPermission()) {
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000, 10, this);
-        }
-    }
-
-    @Override
-    public void onInit(int status) {
-        if (status == TextToSpeech.SUCCESS) {
-            int langResult = textToSpeech.setLanguage(Locale.JAPAN);
-            if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
-                Toast.makeText(this, "日本語のTTSデータが利用できません", Toast.LENGTH_SHORT).show();
+            try {
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000, 10, this);
+            } catch (SecurityException e) {
+                Toast.makeText(this, "位置情報のリクエストに失敗しました: 権限エラー", Toast.LENGTH_SHORT).show();
             }
-        } else {
-            Toast.makeText(this, "TTS の初期化に失敗しました", Toast.LENGTH_SHORT).show();
-            // 詳細なログを追加
-            Log.e("TTS", "TextToSpeechの初期化に失敗しました。ステータス: " + status);
         }
     }
 
@@ -244,14 +191,53 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         }
     }
 
-    // WebAppInterface クラス
+    // TTSの初期化
+    @Override
+    public void onInit(int status) {
+        if (status == TextToSpeech.SUCCESS) {
+            int langResult = textToSpeech.setLanguage(Locale.JAPAN);
+            if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                Toast.makeText(this, "日本語のTTSデータが利用できません", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            Toast.makeText(this, "TTS の初期化に失敗しました", Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "TextToSpeechの初期化に失敗しました。ステータス: " + status);
+        }
+    }
+
+    // サービスが実行中かチェックするメソッド
+    private boolean isServiceRunning(Class<?> serviceClass) {
+        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (serviceClass.getName().equals(service.service.getClassName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // アプリがフォアグラウンドにいるか確認
+    private boolean isAppInForeground() {
+        ActivityManager activityManager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        if (activityManager != null) {
+            List<ActivityManager.RunningAppProcessInfo> appProcesses = activityManager.getRunningAppProcesses();
+            if (appProcesses != null) {
+                for (ActivityManager.RunningAppProcessInfo appProcess : appProcesses) {
+                    if (appProcess.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
+                        return appProcess.processName.equals(getPackageName());
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    // WebViewとのインタラクション
     public class WebAppInterface {
         Context mContext;
-        WebView webView;
 
-        WebAppInterface(Context context, WebView webView) {
+        WebAppInterface(Context context) {
             mContext = context;
-            this.webView = webView;
         }
 
         @JavascriptInterface
@@ -273,35 +259,9 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         @JavascriptInterface
         public void reloadWebView() {
             runOnUiThread(() -> {
-                if (webView != null) {
-                    webView.reload();
-                    Toast.makeText(mContext, "WebView をリロードしました", Toast.LENGTH_SHORT).show();
-                }
+                webViewManager.reloadWebView();
+                Toast.makeText(mContext, "WebView をリロードしました", Toast.LENGTH_SHORT).show();
             });
-        }
-    }
-
-    @Override
-    public void onTrimMemory(int level) {
-        super.onTrimMemory(level);
-        if (level >= TRIM_MEMORY_RUNNING_CRITICAL) {
-            runOnUiThread(() -> {
-                if (webView != null) {
-                    webView.reload();
-                    Toast.makeText(this, "メモリ不足のためリロードしました", Toast.LENGTH_SHORT).show();
-                }
-            });
-        }
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-
-        // WebViewを完全に解放
-        if (webView != null) {
-            webView.destroy();
-            webView = null;
         }
     }
 }
