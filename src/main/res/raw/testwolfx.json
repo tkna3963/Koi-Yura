@@ -1,0 +1,110 @@
+{
+    "type": "jma_eew",
+    "Title": "緊急地震速報（警報）",
+    "CodeType": "Ｍ、最大予測震度及び主要動到達予測時刻の緊急地震速報",
+    "Issue": {
+        "Source": "大阪",
+        "Status": "通常"
+    },
+    "EventID": "20241126224709",
+    "Serial": 22,
+    "AnnouncedTime": "2024/11/26 22:48:06",
+    "OriginTime": "2024/11/26 22:47:03",
+    "Hypocenter": "石川県西方沖",
+    "Latitude": 37,
+    "Longitude": 136.4,
+    "Magunitude": 6.5,
+    "Depth": 10,
+    "MaxIntensity": "5弱",
+    "Accuracy": {
+        "Epicenter": "IPF 法（5 点以上）",
+        "Depth": "IPF 法（5 点以上）",
+        "Magnitude": "全点全相"
+    },
+    "MaxIntChange": {
+        "String": "ほとんど変化なし",
+        "Reason": "不明、未設定時、キャンセル時"
+    },
+    "WarnArea": [
+        {
+            "Chiiki": "石川県能登",
+            "Shindo1": "5弱",
+            "Shindo2": "5弱",
+            "Time": "//////",
+            "Type": "警報",
+            "Arrive": "既に到達と予測"
+        },
+        {
+            "Chiiki": "石川県加賀",
+            "Shindo1": "5弱",
+            "Shindo2": "5弱",
+            "Time": "//////",
+            "Type": "警報",
+            "Arrive": "既に到達と予測"
+        },
+        {
+            "Chiiki": "富山県西部",
+            "Shindo1": "4",
+            "Shindo2": "4",
+            "Time": "//////",
+            "Type": "警報",
+            "Arrive": "既に到達と予測"
+        },
+        {
+            "Chiiki": "富山県東部",
+            "Shindo1": "4",
+            "Shindo2": "4",
+            "Time": "//////",
+            "Type": "警報",
+            "Arrive": "既に到達と予測"
+        },
+        {
+            "Chiiki": "福井県嶺北",
+            "Shindo1": "4",
+            "Shindo2": "4",
+            "Time": "//////",
+            "Type": "警報",
+            "Arrive": "既に到達と予測"
+        },
+        {
+            "Chiiki": "岐阜県飛騨",
+            "Shindo1": "4",
+            "Shindo2": "4",
+            "Time": "//////",
+            "Type": "予報",
+            "Arrive": "既に到達と予測"
+        },
+        {
+            "Chiiki": "長野県北部",
+            "Shindo1": "4",
+            "Shindo2": "4",
+            "Time": "//////",
+            "Type": "予報",
+            "Arrive": "既に到達と予測"
+        },
+        {
+            "Chiiki": "兵庫県北部",
+            "Shindo1": "4",
+            "Shindo2": "3",
+            "Time": "//////",
+            "Type": "予報",
+            "Arrive": "既に到達と予測"
+        },
+        {
+            "Chiiki": "新潟県上越",
+            "Shindo1": "4",
+            "Shindo2": "4",
+            "Time": "224742",
+            "Type": "予報",
+            "Arrive": "主要動到達時刻の予測なし（PLUM 法による予測）"
+        }
+    ],
+    "isSea": true,
+    "isTraining": false,
+    "isAssumption": false,
+    "isWarn": true,
+    "isFinal": true,
+    "isCancel": false,
+    "OriginalText": "37 04 00 241126224806 C11 241126224703 ND20241126224709 NCN022 JD////////////// JN/// 494 N370 E1364 010 65 5- RK44554 RT11/// RC0//// EBI 390 S5-5- ////// 11 391 S5-5- ////// 11 381 S0404 ////// 11 380 S0404 ////// 11 400 S0404 ////// 11 430 S0404 ////// 01 420 S0404 ////// 01 530 S0403 ////// 01 370 S0404 224742 09 9999=",
+    "Pond": "118"
+}

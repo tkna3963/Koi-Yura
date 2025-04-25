@@ -1,11 +1,23 @@
+//WebViewManager.java
 package com.example.koi_yura;
 
+import android.Manifest;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Build;
+import android.speech.tts.TextToSpeech;
 import android.util.Log;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Toast;
+
+import androidx.annotation.RequiresPermission;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 
 /**
  * WebViewを一元管理するシングルトンクラス
@@ -19,6 +31,10 @@ public class WebViewManager {
     private static WebViewManager instance;
     private WebView webView;
     private Context applicationContext;
+
+    private static final String myCHANNEL_ID = "koi_yura_notifications";
+
+    private TextToSpeech textToSpeech;
 
     // プライベートコンストラクタ
     private WebViewManager(Context context) {
@@ -159,6 +175,52 @@ public class WebViewManager {
     public void executeJavaScript(String script) {
         if (webView != null) {
             webView.evaluateJavascript(script, null);
+        }
+    }
+
+    public class WebAppInterface {
+        private final Context mContext;
+
+        WebAppInterface(Context context) {
+            this.mContext = context;
+            createNotificationChannel();
+        }
+
+        @JavascriptInterface
+        public void speakText(String text) {
+            if (textToSpeech != null) {
+                textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, null);
+            }
+        }
+
+
+        @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
+        @JavascriptInterface
+        public void showNotification(String title, String message) {
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(mContext, myCHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_android_black_24dp)
+                    .setContentTitle(title)
+                    .setContentText(message)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setAutoCancel(true);
+
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(mContext);
+            notificationManager.notify();
+        }
+
+        private void createNotificationChannel() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                CharSequence name = "Koi Yura 通知";
+                String description = "WebView からの通知を管理します";
+                int importance = NotificationManager.IMPORTANCE_HIGH;
+                NotificationChannel channel = new NotificationChannel(myCHANNEL_ID, name, importance);
+                channel.setDescription(description);
+
+                NotificationManager notificationManager = mContext.getSystemService(NotificationManager.class);
+                if (notificationManager != null) {
+                    notificationManager.createNotificationChannel(channel);
+                }
+            }
         }
     }
 }

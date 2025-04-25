@@ -16,13 +16,19 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.widget.Toast;
 
+import androidx.annotation.RequiresPermission;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.work.WorkManager;
 
 import java.util.List;
 import java.util.Locale;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 
 public class MainActivity extends AppCompatActivity implements TextToSpeech.OnInitListener, LocationListener {
 
@@ -33,6 +39,8 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
     private double longitude = 0.0;
     private WebViewManager webViewManager;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
+    private static final String CHANNEL_ID = "koi_yura_notifications";
+    private static final int NOTIFICATION_ID = 1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -234,10 +242,11 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
 
     // WebViewとのインタラクション
     public class WebAppInterface {
-        Context mContext;
+        private final Context mContext;
 
         WebAppInterface(Context context) {
-            mContext = context;
+            this.mContext = context;
+            createNotificationChannel();
         }
 
         @JavascriptInterface
@@ -258,10 +267,40 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
 
         @JavascriptInterface
         public void reloadWebView() {
-            runOnUiThread(() -> {
+            ((MainActivity) mContext).runOnUiThread(() -> {
                 webViewManager.reloadWebView();
                 Toast.makeText(mContext, "WebView をリロードしました", Toast.LENGTH_SHORT).show();
             });
         }
+
+        @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
+        @JavascriptInterface
+        public void showNotification(String title, String message) {
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(mContext, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_android_black_24dp)
+                    .setContentTitle(title)
+                    .setContentText(message)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setAutoCancel(true);
+
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(mContext);
+            notificationManager.notify(NOTIFICATION_ID, builder.build());
+        }
+
+        private void createNotificationChannel() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                CharSequence name = "Koi Yura 通知";
+                String description = "WebView からの通知を管理します";
+                int importance = NotificationManager.IMPORTANCE_HIGH;
+                NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+                channel.setDescription(description);
+
+                NotificationManager notificationManager = mContext.getSystemService(NotificationManager.class);
+                if (notificationManager != null) {
+                    notificationManager.createNotificationChannel(channel);
+                }
+            }
+        }
     }
+
 }

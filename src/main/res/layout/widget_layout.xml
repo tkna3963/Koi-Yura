@@ -1,17 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:padding="10dp"
-    android:background="#FFC107">
+    android:background="#FFC107"
+    tools:ignore="WebViewLayout">
+
+    <!-- テキストを画像の中央上に表示 -->
+    <TextView
+        android:id="@+id/KoisiWidgetText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_alignParentTop="true"
+        android:background="#AA000000"
+        android:padding="8dp"
+        android:text="TextView"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp" />
 
     <!-- 画像を配置 -->
-
     <ImageView
         android:id="@+id/widget_image"
         android:layout_width="800dp"
         android:layout_height="1100dp"
         android:contentDescription="画像"
-        android:src="@raw/hyoujyou_warau_koisi" />
+        android:src="@raw/hyoujyou_warau_koisi"
+        android:layout_below="@id/KoisiWidgetText"
+        android:scaleType="fitCenter" />
 
 </RelativeLayout>

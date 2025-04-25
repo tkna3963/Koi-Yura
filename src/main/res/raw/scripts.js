@@ -1,5 +1,6 @@
 // ===== グローバル変数 =====
 let P2P_list = []; // P2Pサーバーからのデータを一時的に保存
+let WolfX_list = []; // WolfXサーバーからのデータを一時的に保存
 let all_data_list = []; // 保存されたすべてのデータ
 let log_list = []; // ログデータ
 let converted_data_list = []; // フォーマット変換されたデータ
@@ -17,6 +18,15 @@ function speakTextAndroid(text) {
         console.log("Androidインターフェースが見つかりませんでした。");
     }
 }
+
+function showNotificationAndroid(title, text) {
+    if (typeof Android !== 'undefined' && Android.showNotification) {
+        Android.showNotification(title, text);
+    } else {
+        console.log("Androidインターフェースが見つかりませんでした。");
+    }
+}
+
 
 function Savejson(value) {
     const maxItems = 1000; // 最大保存件数
@@ -458,6 +468,49 @@ function P2P554Convert(data) {
     `;
 }
 
+
+// 地域ごとの警報情報を受け取って、文章形式に変換する関数
+function P2P5520Convert(data) {
+    // 結果となる文章
+    let result = '';
+
+    // 警報の発行時間を取り出して
+    const issueTime = new Date(data.time);
+    result += `警報が発表された日時: ${issueTime.toLocaleString()}\n`;
+    const AlertLevel = Object.freeze({
+        WATCH: "Watch",
+        WARNING: "Warning",
+        ADVISORY: "Advisory"
+    });    
+    // 地域ごとの警報レベル
+    result += "警報が出ている地域:\n";
+    data.areas.forEach(area => {
+        let areaAlertLevel = '';
+        switch(area.grade) {
+            case AlertLevel.WATCH:
+                areaAlertLevel = '注意報';
+                break;
+            case AlertLevel.WARNING:
+                areaAlertLevel = '警報';
+                break;
+            case AlertLevel.ADVISORY:
+                areaAlertLevel = '助言';
+                break;
+            default:
+                areaAlertLevel = '未定義';
+        }
+
+        const immediateAlert = area.immediate ? '即時対応が必要です。' : '今後の変化に注意が必要です。';
+        result += `${area.name}: ${areaAlertLevel} - ${immediateAlert}\n`;
+    });
+
+    // 期限（expire）の処理
+    const expireTime = new Date(data.expire);
+    result += `警報の有効期限: ${expireTime.toLocaleString()}\n`;
+
+    return result;
+}
+
 function P2PSorting(Original) {
     try {
         const codeMap = {
@@ -467,7 +520,8 @@ function P2PSorting(Original) {
             555: P2P555Convert,
             556: P2P556Convert,
             561: P2P561Convert,
-            9611: P2P9611Convert
+            9611: P2P9611Convert,
+            5520: P2P5520Convert
         };
 
         return codeMap[Original.code] ? codeMap[Original.code](Original) : Original.code;
@@ -479,7 +533,6 @@ function P2PSorting(Original) {
 
 function wolfxcoverter(data) {
     // "heartbeat" の場合
-    Koisi_voice("outsideconnection.wav")
     if (data.type === "heartbeat") {
         return `【システムハートビート】\n` +
             `ID: ${data.id}\n` +
@@ -556,17 +609,13 @@ function createWolfxWebSocketConnection() {
     wolfx_websoket.onmessage = function (event) {
         try {
             let data = JSON.parse(event.data);
-
-            // データ処理
+            WolfX_list.push(data);
+            Savejson(data);
             all_data_list.push(data);
-            log_list.push(`WolfX data received: ${JSON.stringify(data)}`);
-
-            // currentIndex の更新と表示
+            log_list.push(`Wolfx data received: ${JSON.stringify(data)} `);
+            isWebSocketConnected = true;
             currentIndex = all_data_list.length;
-
-            if (currentIndex > 0) {
-                displayMaintextareaData(currentIndex);
-            }
+            displayMaintextareaData(currentIndex);
         } catch (error) {
             console.error("Error processing WolfX WebSocket data:", error);
         }
@@ -649,6 +698,7 @@ function attemptP2PReconnect() {
 createP2PWebSocketConnection();
 createWolfxWebSocketConnection();
 
+
 //main部
 function changetime() {
     const nowTimeElem = document.getElementById("now_time");
@@ -681,60 +731,32 @@ function addMenuItem(text) {
 }
 
 // displayMaintextareaData関数：インデックスに基づいてテキストエリアにデータを表示
-let skipCount = 0; // スキップ回数のカウント
-let lastImportantData = ""; // 最後に表示した重要なデータ
 
 function displayMaintextareaData(index) {
     try {
         const mainTextarea = document.getElementById("maintextarea");
         const pagebar = document.getElementById("pagebar");
-
         if (!mainTextarea) {
             console.error("Element with id 'maintextarea' not found.");
             return;
         }
-
         if (!all_data_list || all_data_list.length === 0) {
             mainTextarea.value = "";
             return;
         }
-
         const validIndex = Math.min(Math.max(index, 1), all_data_list.length);
         const currentData = all_data_list[validIndex - 1]; // 1ベース
-
-        // 重要な情報 (551, 552, 554, 556, jma_eew) を受信した場合はスキップ
-        if (
-            ["551", "552", "554", "556"].includes(currentData.code) ||
-            currentData.type === "jma_eew"
-        ) {
-            if (skipCount === 0) {
-                // 最初に重要なデータを受信した場合に表示して固定
-                lastImportantData = `${validIndex}/${all_data_list.length}\n${P2PSorting(currentData) || wolfxcoverter(currentData)}`;
-                console.log(`重要情報 (${currentData.code || currentData.type}) 受信。次の20回は表示を固定。`);
-            }
-            skipCount = 20; // 20回スキップする
-            return; // 重要情報の表示をスキップし、次のデータを処理せずに終了
-        }
-
         // スキップ回数が残っている場合はスキップ
-        if (skipCount > 0) {
-            skipCount--;
-            return; // スキップ中は表示処理を行わない
-        }
-
         let displayData;
         if (currentData.code) {
             displayData = P2PSorting(currentData); // P2Pデータ
         } else {
             displayData = wolfxcoverter(currentData);  // WolfXデータ
         }
-
         // 重要情報でない場合のみテキストエリアに表示
         mainTextarea.value = `${validIndex}/${all_data_list.length}\n${displayData}`;
-
         // メニュー項目を追加
         addMenuItem(`${currentData.code || 'WolfX'}情報`);
-
         // 現在のインデックスを更新し、スライダーを同期
         currentIndex = validIndex;
         if (pagebar) {
@@ -742,11 +764,6 @@ function displayMaintextareaData(index) {
         }
     } catch (error) {
         console.error("displayMaintextareaDataエラー:", error);
-    } finally {
-        // 重要な情報を表示している間、テキストエリアの表示を固定
-        if (skipCount > 0 && mainTextarea) {
-            mainTextarea.value = lastImportantData;
-        }
     }
 }
 
@@ -780,3 +797,43 @@ document.addEventListener("DOMContentLoaded", () => {
         displayMaintextareaData(1);
     }
 });
+
+let Testercount=0;
+function P2Ptester(){
+    //test.jsonを読み込み
+    fetch("testp2p.json")
+        .then(response => response.json())
+        .then(data => {
+            //1~5のランダムな値を取得する
+            Testercount+=1;
+            if (Testercount>=data.length){
+                Testercount=1;
+            }
+            data = data[Testercount];            
+            console.log(data);
+            P2P_list.push(data);
+            Savejson(data);
+            all_data_list.push(data);
+            log_list.push(`P2P data received: ${JSON.stringify(data)} `);
+            isWebSocketConnected = true;
+            currentIndex = all_data_list.length;
+            displayMaintextareaData(currentIndex);
+        }
+    );
+}
+
+function WolfXtester(){
+    //test.jsonを読み込み
+    fetch("testwolfX.json")
+        .then(response => response.json())
+        .then(data => {
+            WolfX_list.push(data);
+            Savejson(data);
+            all_data_list.push(data);
+            log_list.push(`P2P data received: ${JSON.stringify(data)} `);
+            isWebSocketConnected = true;
+            currentIndex = all_data_list.length;
+            displayMaintextareaData(currentIndex);
+        }
+    );
+}

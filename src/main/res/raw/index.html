@@ -8,14 +8,13 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <title>古明地こいしアプリ</title>
 </head>
 
 <body>
     <h1 id="now_time">2000/01/01 00:00:00(00)</h1>
     <textarea id="maintextarea" rows="1" readonly></textarea>
     <input type="number" id="pagebar" min="-100" max="100" value="1">
-    <div class="koisiarrow_box">古明地こいしだよ～～</div>
+    <div class="koisiarrow_box">古明地こいしだよ!!</div>
     <img src="baclgroundimg.jpg" id="back">
     <img src="hyoujyou_bishou_koisi.png" id="koisi" onclick="koisi_toutchdo()">
     <audio id="koisi_voice" src="koisi_toutch.wav"></audio>
@@ -56,16 +55,37 @@
             infomenu.classList.toggle('open');
         });
     </script>
+
     <script>
         function koisi_toutchdo() {
             koisi_facechange("hyoujyou_warau_koisi.png");
             Koisi_voice("koisi_toutch.wav");
+            speakTextAndroid("アナウンサーです。");
+            
         }
         //musicを再生
         function music_play() {
             const music = document.getElementById("music");
             music.play();
         }
+        //music_play();
+        function tester(){
+            speakTextAndroid("アナウンサーです。");
+            //現在時刻を取得
+            var now = new Date();
+            var year = now.getFullYear();
+            var month = now.getMonth() + 1;
+            var day = now.getDate();
+            var hour = now.getHours();
+            var minute = now.getMinutes();
+            var second = now.getSeconds();
+            var dayOfWeek = now.getDay();
+            var dayOfWeekStr = ["日", "月", "火", "水", "木", "金", "土"][dayOfWeek];
+            //表示
+            showNotificationAndroid("text",year + "/" + month + "/" + day + " " + hour + ":" + minute + ":" + second + "(" + dayOfWeekStr + ")")
+            }
+        //music_play();
+        //setInterval(tester, 1500);
     </script>
 
 </body>
